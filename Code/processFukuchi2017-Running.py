@@ -27,9 +27,6 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 from scipy.interpolate import interp1d
 
-# %% Define functions
-
-
 # %% Set-up
 
 #Create main directory variable
@@ -78,21 +75,54 @@ scaleOrder.set(0,'measurements')
 #Set IK task set
 ikTaskSet = osim.IKTaskSet('..\\OpensimModel\\ikTasks_Fukuchi2017-running.xml')
 
+#Set up a list of markers once flattened to keep
+#This mainly gets rid of the random ASY markers
+markersFlatList = ['L.ASIS_1','L.ASIS_2','L.ASIS_3',
+                   'L.Heel.Bottom_1','L.Heel.Bottom_2','L.Heel.Bottom_3',
+                   'L.Heel.Lateral_1','L.Heel.Lateral_2','L.Heel.Lateral_3',
+                   'L.Heel.Top_1','L.Heel.Top_2','L.Heel.Top_3',
+                   'L.Iliac.Crest_1','L.Iliac.Crest_2','L.Iliac.Crest_3',
+                   'L.MT1_1','L.MT1_2','L.MT1_3',
+                   'L.MT5_1','L.MT5_2','L.MT5_3',
+                   'L.PSIS_1','L.PSIS_2','L.PSIS_3',
+                   'L.Shank.Bottom.Lateral_1','L.Shank.Bottom.Lateral_2','L.Shank.Bottom.Lateral_3',
+                   'L.Shank.Bottom.Medial_1','L.Shank.Bottom.Medial_2','L.Shank.Bottom.Medial_3',
+                   'L.Shank.Top.Lateral_1','L.Shank.Top.Lateral_2','L.Shank.Top.Lateral_3',
+                   'L.Shank.Top.Medial_1','L.Shank.Top.Medial_2','L.Shank.Top.Medial_3',
+                   'L.Thigh.Bottom.Lateral_1','L.Thigh.Bottom.Lateral_2','L.Thigh.Bottom.Lateral_3',
+                   'L.Thigh.Bottom.Medial_1','L.Thigh.Bottom.Medial_2','L.Thigh.Bottom.Medial_3',
+                   'L.Thigh.Top.Lateral_1','L.Thigh.Top.Lateral_2','L.Thigh.Top.Lateral_3',
+                   'L.Thigh.Top.Medial_1','L.Thigh.Top.Medial_2','L.Thigh.Top.Medial_3',
+                   'R.Heel.Bottom_1','R.Heel.Bottom_2','R.Heel.Bottom_3',
+                   'R.Heel.Lateral_1','R.Heel.Lateral_2','R.Heel.Lateral_3',
+                   'R.Heel.Top_1','R.Heel.Top_2','R.Heel.Top_3',
+                   'R.Iliac.Crest_1','R.Iliac.Crest_2','R.Iliac.Crest_3',
+                   'R.MT1_1','R.MT1_2','R.MT1_3',
+                   'R.MT5_1','R.MT5_2','R.MT5_3',
+                   'R.PSIS_1','R.PSIS_2','R.PSIS_3',
+                   'R.Shank.Bottom.Lateral_1','R.Shank.Bottom.Lateral_2','R.Shank.Bottom.Lateral_3',
+                   'R.Shank.Bottom.Medial_1','R.Shank.Bottom.Medial_2','R.Shank.Bottom.Medial_3',
+                   'R.Shank.Top.Lateral_1','R.Shank.Top.Lateral_2','R.Shank.Top.Lateral_3',
+                   'R.Shank.Top.Medial_1','R.Shank.Top.Medial_2','R.Shank.Top.Medial_3',
+                   'R.Thigh.Bottom.Lateral_1','R.Thigh.Bottom.Lateral_2','R.Thigh.Bottom.Lateral_3',
+                   'R.Thigh.Bottom.Medial_1','R.Thigh.Bottom.Medial_2','R.Thigh.Bottom.Medial_3',
+                   'R.Thigh.Top.Lateral_1','R.Thigh.Top.Lateral_2','R.Thigh.Top.Lateral_3',
+                   'R.Thigh.Top.Medial_1','R.Thigh.Top.Medial_2','R.Thigh.Top.Medial_3']
+
 # %% Loop through subjects and process data
 
 #Set-up lists to store opensim objects in
 #This seems necessary to doubling up on objects and crashing Python
 scaleTool = []
-# osimModel = []
 ikTool = []
-# analyseTool = []
-# bodyKin = []
-# anToolRun = []
 
 #Loop through subjects
 #Set starting subject index to account for starting at an index > 0 in lists
-startInd = 0
-for ii in range(len(subList)):
+
+##### Completed through RBDS024 ##### start from ind 17...
+
+startInd = 17
+for ii in range(17,len(subList)):
     
     #Navigate to subject directory
     os.chdir(subList[ii])
@@ -212,15 +242,24 @@ for ii in range(len(subList)):
         #Get time in array format
         t = np.array(markersFlat.getIndependentColumn())
         
+        #There are special cases where a marker might not be present (doesn't
+        #happen very often), but need to check to avoid errors
+        #Set blank list to store present markers (see comment below)
+        markersKeptList = list()
+        #Check and append markers present to list
+        for cc in range(len(markersFlatList)):
+            if markersFlatList[cc] in list(markersFlat.getColumnLabels()):
+                markersKeptList.append(markersFlatList[cc])
+        
         #Create numpy array to store filtered data in
         filtData = np.empty((markersFlat.getNumRows(),
-                             markersFlat.getNumColumns()))
-        
+                             len(markersKeptList)))
+                        
         #Loop through column labels
-        for cc in range(len(markersFlat.getColumnLabels())):
+        for cc in range(len(markersKeptList)):
             
             #Get the data in an array format
-            datArr = markersFlat.getDependentColumn(markersFlat.getColumnLabels()[cc]).to_numpy()
+            datArr = markersFlat.getDependentColumn(markersKeptList[cc]).to_numpy()
             
             #Interpolate across nans if present
             if np.sum(np.isnan(datArr)) > 0:
@@ -258,7 +297,7 @@ for ii in range(len(subList)):
             filtMarkers.setIndependentValueAtIndex(rr,t[rr])
         
         #Set column labels
-        filtMarkers.setColumnLabels(markersDynamic.flatten().getColumnLabels())
+        filtMarkers.setColumnLabels(markersKeptList)
         
         #Pack table back to Vec3
         filtTRC = filtMarkers.packVec3()
@@ -267,7 +306,7 @@ for ii in range(len(subList)):
         filtTRC.addTableMetaDataString('DataRate',str(fs)) #Data rate
         filtTRC.addTableMetaDataString('CameraRate',str(fs)) #Camera rate
         filtTRC.addTableMetaDataString('NumFrames',str(len(t))) #Number frames
-        filtTRC.addTableMetaDataString('NumMarkers',str(len(markersDynamic.getColumnLabels()))) #Number markers
+        filtTRC.addTableMetaDataString('NumMarkers',str(len(markersKeptList))) #Number markers
         filtTRC.addTableMetaDataString('Units',markersDynamic.getTableMetaDataString('Units')) #Units
         
         #Write data to file (unfiltered)
@@ -311,8 +350,12 @@ for ii in range(len(subList)):
     #Print confirmation for subject
     print('IK complete for '+subList[ii])
     
-    # %%
-    
     #Shift back up to data directory
     os.chdir(dataDir)
     
+# %% Finish up
+
+#Navigate back to main directory
+os.chdir(mainDir)
+    
+# %% ----- End of processFukuchi2017-Running.py -----
