@@ -422,7 +422,7 @@ dataDict = {'subID': [], 'trialID': [], 'kinematics': [],
 
 #Loop through subjects
 for ii in range(len(subList)):
-# for ii in range(0,17):
+# for ii in range(0,20):
     
     #Navigate to subject directory
     os.chdir(subList[ii])
@@ -461,7 +461,7 @@ for ii in range(len(subList)):
         plotKinematics(subList[ii], trialList[tt], df_ik, leftFS, rightFS)
         
         #Save figure
-        plt.savefig(subList[ii]+'_kinematics.png')
+        plt.savefig(subList[ii]+'_'+trialList[tt]+'_kinematics.png')
         plt.close()
         
     #Print confirmation
@@ -483,6 +483,10 @@ minGC = min(dataDict['rGC_n'])
 ### TODO
     #Update and check once final participants added
     
+# %% TODO: Determine most and least variable...
+
+#Likely knee flexion and hip rotation...
+    
 # %% Determine gait cycle extraction points
 
 #Set the list of gait cycles to extract
@@ -500,6 +504,7 @@ sampleDict = {'subID': [], 'trialID': [],
 
 #Loop through subjects
 for ii in range(len(subList)):
+# for ii in range(0,20):
     
     #Loop through trial list
     for tt in range(len(trialList)):
@@ -510,6 +515,7 @@ for ii in range(len(subList)):
         currInd = list(set(subInd) & set(trialInd))[0]
     
         #Get the number of gait cycles for this participant
+        #Note that this is for the right limb this is what we'll analyse
         nGC = dataDict['rGC_n'][currInd]
         
         #Loop through extraction numbers
@@ -578,31 +584,164 @@ df_samples = pd.DataFrame.from_dict(sampleDict)
                 
 # %% Extract data and run tests
 
-##### TODO:
-    #Set dictionary to store findings in...
-    #Includes extract no, trialID, rejectH0, RMSdiff, standardised effect?
+#Set a dictionary to store findings of each iteration in
+##### TODO
+    #Include some sort of standardised error/effect of difference???
+resultsDict = {'extractNo': [], 'trialID': [],
+               'rejectH0': [], 'pVal': [],
+               'analysisVar': [],
+               'Y1': [], 'Y2': [],
+               'Y1m': [], 'Y2m': [], 'meanAbsError': []}
     
 ##### TODO:
     #Selecting variables --- start by testing knee flexion
 
-#Loop through the extraction numbers
-for ee in range(len(extractNo)):
+#Set analysis variable
+analysisVar = 'knee_angle_r'
     
-    #Set current extract number
-    currNo = extractNo[ee]
+#Set the alpha level for the t-tests
+alpha = 0.05
+
+#Loop through the different trial types
+for tt in range(len(trialList)):
     
-    #Loop through the sampling number
-    for ss in range(nSamples):
+    #Extract the dataframe for the current trial ID
+    df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
+
+    #Loop through the extraction numbers
+    for ee in range(len(extractNo)):
         
-        ##### TODO:
-            #Set space to store data....
-            #Array
-            #Rows = participants, columns = 101 time points
+        #Set current extract number
+        currNo = int(extractNo[ee])
         
-        #Loop through subjects and get their data for the current sample
-        for ii in range(len(subList)):
-                
+        #Extract the dataframe for the current extraction number
+        df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
+        
+        #Loop through the sampling number
+        for ss in range(nSamples):
             
+            #Set array to store each subjects two datasets for this sample iteration
+            # Y1 = np.empty((len(subList),101))
+            # Y2 = np.empty((len(subList),101))
+            Y1 = np.empty((20,101))
+            Y2 = np.empty((20,101))
+            
+            #Loop through subjects and get their data for the current sample
+            # for ii in range(len(subList)):
+            for ii in range(0,20):
                 
+                #Extract the dataframe that matches the current subject
+                #As part of this also extract the row that matches the current
+                #sampling iteration index
+                df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
+                df_currIter = df_currSub.iloc[ss]
                 
-#Determine maximum number of strides across all participants...limit to this
+                #Set a space to store normalised data into for calculating
+                #current subjects mean
+                normData1 = np.empty((currNo,101))
+                normData2 = np.empty((currNo,101))
+                
+                #Extract the current participants kinematic data relevant to
+                #current trial tupe. Get the index corresponding to this in the
+                #data dictionary.
+                subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+                trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+                currInd = list(set(subInd) & set(trialInd))[0]
+                
+                #Get the right foot strike indices
+                rightFS = dataDict['rightFS'][currInd]
+                
+                #Get the IK dataframe
+                df_ik = dataDict['kinematics'][currInd]
+                
+                #Loop through extraction number and normalise kinematics
+                for nn in range(currNo):
+                    
+                    #Extract data between current heel strikes
+                
+                    #Get start and end time
+                    startTime1 = rightFS[df_currIter['footStrikes1'][nn]]
+                    endTime1 = rightFS[df_currIter['footStrikes1'][nn+1]]
+                    startTime2 = rightFS[df_currIter['footStrikes2'][nn]]
+                    endTime2 = rightFS[df_currIter['footStrikes2'][nn+1]]
+                    
+                    #Create a boolean mask for in between event times
+                    extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
+                    extractTime2 = ((df_ik['time'] > startTime2) & (df_ik['time'] < endTime2)).values
+                    
+                    #Extract the time values
+                    timeVals1 = df_ik['time'][extractTime1].values
+                    timeVals2 = df_ik['time'][extractTime2].values
+                    
+                    #Extract the data
+                    dataVals1 = df_ik[analysisVar][extractTime1].values
+                    dataVals2 = df_ik[analysisVar][extractTime2].values
+                    
+                    #Normalise data to 0-100%
+                    newTime1 = np.linspace(timeVals1[0],timeVals1[-1],101)
+                    newTime2 = np.linspace(timeVals2[0],timeVals2[-1],101)
+                    interpData1 = np.interp(newTime1,timeVals1,dataVals1)                    
+                    interpData2 = np.interp(newTime2,timeVals2,dataVals2)
+                    
+                    #Store interpolated data in array
+                    normData1[nn,:] = interpData1
+                    normData2[nn,:] = interpData2
+            
+                #Calculate the mean of the current subjects normalised data
+                #Store in the current sample iterations array for SPM1D analysis
+                Y1[ii,:] = np.mean(normData1, axis = 0)
+                Y2[ii,:] = np.mean(normData2, axis = 0)
+            
+            #Conduct the SPM1D t-test on this sample
+            t = spm1d.stats.ttest_paired(Y1, Y2)
+            ti = t.inference(alpha, two_tailed = True, interp = True)
+            
+            # #Visuliase
+            # #Set-up plot
+            # plt.figure(figsize=(8, 3.5))
+            # #Plot mean and SD of two samples
+            # ax1 = plt.axes((0.1, 0.15, 0.35, 0.8))
+            # spm1d.plot.plot_mean_sd(Y1, linecolor = 'b', facecolor = 'b')
+            # spm1d.plot.plot_mean_sd(Y1, linecolor = 'r', facecolor='r')
+            # ax1.axhline(y = 0, color = 'k', linestyle=':')
+            # ax1.set_xlabel('0-100% Gait Cycle')
+            # ax1.set_ylabel(analysisVar)
+            # #Plot SPM results
+            # ax2 = plt.axes((0.55,0.15,0.35,0.8))
+            # ti.plot()
+            # ti.plot_threshold_label(fontsize = 8)
+            # ti.plot_p_values(size = 10, offsets = [(0,0.3)])
+            # ax2.set_xlabel('0-100% Gait Cycle')
+            # #Show plot
+            # plt.show()
+            
+            #Calculate mean absolute error of current two curves
+            Y1m = np.mean(Y1, axis = 0)
+            Y2m = np.mean(Y2, axis = 0)
+            mae = np.mean(abs(Y1m - Y2m))            
+            
+            #Collate results from this sampling iteration into dictionary
+            resultsDict['extractNo'].append(currNo)
+            resultsDict['trialID'].append(trialList[tt])
+            resultsDict['rejectH0'].append(ti.h0reject)
+            resultsDict['pVal'].append(ti.p) #note there are no p-values for non-statistically significant results
+            resultsDict['analysisVar'].append(analysisVar)
+            resultsDict['Y1'].append(Y1)
+            resultsDict['Y2'].append(Y2)
+            resultsDict['Y1m'].append(Y1m)
+            resultsDict['Y2m'].append(Y2m)
+            resultsDict['meanAbsError'].append(mae)
+            
+            #Print confirmation
+            print('Completed '+str(ss+1)+' of '+str(nSamples)+' for '+
+                  str(currNo)+' gait cycles of '+trialList[tt])
+                
+# %% Sequential analysis:
+    
+    #See:
+        
+        #Taylor et al. (2015). Determining optimal trial size using sequential analysis
+        #Forrester (2015). Selecting the number of trials in experimental biomechanics studies
+        #Severin et al. (2019). The required number of trials for biomechanical analysis of a golf swing
+        
+        #Check these papers reference lists as well...

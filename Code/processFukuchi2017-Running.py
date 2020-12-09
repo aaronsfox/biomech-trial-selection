@@ -119,10 +119,10 @@ ikTool = []
 #Loop through subjects
 #Set starting subject index to account for starting at an index > 0 in lists
 
-##### Completed through RBDS024 ##### start from ind 17...
+##### Completed through RBDS028 ##### start from ind 21...
 
-startInd = 17
-for ii in range(17,len(subList)):
+startInd = 21
+for ii in range(21,len(subList)):
     
     #Navigate to subject directory
     os.chdir(subList[ii])
@@ -135,7 +135,13 @@ for ii in range(17,len(subList)):
         staticFile.append(file)
     
     #Get subject mass based on static file name and participant info database
-    mass = df_subInfo.loc[df_subInfo['FileName'] == staticFile[0],['Mass']].values[0][0]
+    #Need check in place as files are labelled differently for certain participants
+    ##### TODO: make this more cleaner...
+    if ii >= 21:
+        newStaticFile = staticFile[0].split('0')[0]+'00'+staticFile[0].split('0')[1]
+        mass = df_subInfo.loc[df_subInfo['FileName'] == newStaticFile,['Mass']].values[0][0]
+    else:
+        mass = df_subInfo.loc[df_subInfo['FileName'] == staticFile[0],['Mass']].values[0][0]
     
     #Convert c3d markers to trc file
     
