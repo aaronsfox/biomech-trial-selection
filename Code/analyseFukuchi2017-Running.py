@@ -29,6 +29,8 @@ import random
 import matplotlib.pyplot as plt
 import seaborn as sns
 import spm1d
+from statsmodels.stats.anova import AnovaRM
+from scipy import stats
 
 # %% Define functions
 
@@ -458,12 +460,12 @@ for ii in range(len(subList)):
         dataDict['lGC_n'].append(len(leftFS) - 1)
         dataDict['rGC_n'].append(len(rightFS) - 1)
         
-        #Plot data for later error checking
-        plotKinematics(subList[ii], trialList[tt], df_ik, leftFS, rightFS)
+        # #Plot data for later error checking
+        # plotKinematics(subList[ii], trialList[tt], df_ik, leftFS, rightFS)
         
-        #Save figure
-        plt.savefig(subList[ii]+'_'+trialList[tt]+'_kinematics.png')
-        plt.close()
+        # #Save figure
+        # plt.savefig(subList[ii]+'_'+trialList[tt]+'_kinematics.png')
+        # plt.close()
         
     #Print confirmation
     print('Data extracted for '+subList[ii])
@@ -480,10 +482,7 @@ minGC = min(dataDict['rGC_n'])
     #The above calculation determines 34 to be the minimum number of gait cycles
     #across all all participants
     #Considering this we can probably safely go up to 15 and have minimum overlap
-
-# %% TODO: Determine most and least variable...
-
-#Likely knee flexion and hip rotation...
+    #We can increase this to 20 when not comparing cycles within a participant
     
 # %% Extract data and run tests
 
@@ -514,16 +513,18 @@ alpha = 0.05
 
 #Set the list of gait cycles to extract
 minExtract = 5
-maxExtract = 15
-extractNo = np.linspace(minExtract,maxExtract,
-                        maxExtract-minExtract+1)
+maxExtractSingle = 20
+maxExtractDual = 15
+extractNo = np.linspace(minExtract,maxExtractSingle,
+                        maxExtractSingle-minExtract+1)
 
 #Set the number of sampling iterations to run
-nSamples = 1000
+# nSamples = 1000
+nSamples = 100      ### REDUCE DURING CODE TESTING
 
 #Set dictionary to store gait cycle points in
-sampleDict = {'subID': [], 'trialID': [],
-              'extractNo': [], 'footStrikes1': [], 'footStrikes2': []}
+sampleDict = {'subID': [], 'trialID': [], 'extractNo': [],
+              'footStrikes': [], 'footStrikes1': [], 'footStrikes2': []}
 
 #Loop through subjects
 for ii in range(len(subList)):
@@ -544,27 +545,34 @@ for ii in range(len(subList)):
         #Loop through extraction numbers
         for ee in range(len(extractNo)):
             
-            #Determine the 'go zones' for random selection of the first set
-            #Start by creating each individual cycle in a list
+            #Determine the 'go zone' for random selection of the singular set of
+            #foot strikes
             gcStarts = np.linspace(0,nGC,nGC+1)
             #Remove the final X values relative to current extraction number, as
             #these won't leave enough to grab
-            gcStarts = gcStarts[0:int(-extractNo[ee])]
-            #Loop through the start numbers and check if using it there will be
-            #a valid number before or after it
-            goZone = list()
-            for gg in range(len(gcStarts)):
-                #Check whether there will be valid values after
-                enoughAfter = gcStarts[-1] - (gcStarts[gg] + extractNo[ee]) > 0
-                #Check whether there would be valid values before
-                enoughBefore = gcStarts[gg] - extractNo[ee] > 0
-                #If one of these is True then the value can be added to the 'go zone'
-                if enoughAfter or enoughBefore:
-                    goZone.append(gcStarts[gg])
-                    
-            #Create list to store starting gait values into for extraction
-            start1 = list()
-            start2 = list()
+            goZoneSingle = gcStarts[0:int(-extractNo[ee])]
+            
+            #Check if this extraction number is within the boundaries for the 
+            #dual comparison
+            if extractNo[ee] <= maxExtractDual:
+            
+                #Determine the 'go zones' for random selection of the first set
+                #Start by creating each individual cycle in a list
+                gcStarts = np.linspace(0,nGC,nGC+1)
+                #Remove the final X values relative to current extraction number, as
+                #these won't leave enough to grab
+                gcStarts = gcStarts[0:int(-extractNo[ee])]
+                #Loop through the start numbers and check if using it there will be
+                #a valid number before or after it
+                goZoneDual = list()
+                for gg in range(len(gcStarts)):
+                    #Check whether there will be valid values after
+                    enoughAfter = gcStarts[-1] - (gcStarts[gg] + extractNo[ee]) > 0
+                    #Check whether there would be valid values before
+                    enoughBefore = gcStarts[gg] - extractNo[ee] > 0
+                    #If one of these is True then the value can be added to the 'go zone'
+                    if enoughAfter or enoughBefore:
+                        goZoneDual.append(gcStarts[gg])
             
             #Set seed here for sampling consistency
             random.seed(12345)
@@ -579,28 +587,42 @@ for ii in range(len(subList)):
                 #Append extract number details
                 sampleDict['extractNo'].append(int(extractNo[ee]))
                 
-                #Select a random number from the list to start from
-                s1 = random.choice(goZone)
+                #Select a random number from the single 'go zone'
+                singlePick = random.choice(goZoneSingle)
                 
-                #Set a list to make second selection from
-                select2 = list()
+                #Set strikes for current sample in directory
+                sampleDict['footStrikes'].append(list(map(round,list(np.linspace(singlePick,singlePick+int(extractNo[ee]),int(extractNo[ee]+1))))))
                 
-                #At this point split into two lists so length checks are easier
-                #Can't use preceding starting points if they are within the
-                #extraction number of the starting point
-                goZone1 = [x for x in goZone if x < s1-extractNo[ee]+1]
-                #Can't use values that will be encompassed within the gait cycles
-                #extracted from the first starting point
-                goZone2 = [x for x in goZone if x > s1+extractNo[ee]-1]
-                #Concatenate the lists for to select from
-                select2 = goZone1 + goZone2
-
-                #Select a random number from the second list to start from
-                s2 = random.choice(select2)
+                #Check if dual selection is necessary
+                if extractNo[ee] <= maxExtractDual:
                 
-                #Set strikes for current sample in dictionary
-                sampleDict['footStrikes1'].append(list(map(round,list(np.linspace(s1,s1+int(extractNo[ee]),int(extractNo[ee]+1))))))
-                sampleDict['footStrikes2'].append(list(map(round,list(np.linspace(s2,s2+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                    #Select a random number from the list to start from
+                    dualPick1 = random.choice(goZoneDual)
+                    
+                    #Set a list to make second selection from
+                    select2 = list()
+                    
+                    #At this point split into two lists so length checks are easier
+                    #Can't use preceding starting points if they are within the
+                    #extraction number of the starting point
+                    goZone1 = [x for x in goZoneDual if x < dualPick1-extractNo[ee]+1]
+                    #Can't use values that will be encompassed within the gait cycles
+                    #extracted from the first starting point
+                    goZone2 = [x for x in goZoneDual if x > dualPick1+extractNo[ee]-1]
+                    #Concatenate the lists for to select from
+                    select2 = goZone1 + goZone2
+    
+                    #Select a random number from the second list to start from
+                    dualPick2 = random.choice(select2)
+                
+                    #Set strikes for current sample in dictionary
+                    sampleDict['footStrikes1'].append(list(map(round,list(np.linspace(dualPick1,dualPick1+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                    sampleDict['footStrikes2'].append(list(map(round,list(np.linspace(dualPick2,dualPick2+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                
+                #Otherwise just set nan's
+                else:
+                    sampleDict['footStrikes1'].append(np.nan)
+                    sampleDict['footStrikes2'].append(np.nan)
     
     #Print confirmation for subject
     print('Samples extracted for '+subList[ii])
@@ -635,9 +657,6 @@ seqDict = {'nGC': [], 'subID': [], 'trialID': [], 'analysisVar': [],
 
 #Loop through trial types
 for tt in range(len(trialList)):
-    
-    #Extract the dataframe for the current trial ID
-    df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
 
     #Loop through variables
     for vv in range(len(analysisVar)):
@@ -795,6 +814,219 @@ sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
 #### Still takes a long time for peak values to come under the 0.25 SD threshold
 #### Could consider taking absolute of these peak SD sequential values too for
 #### consistency with the 1D variables...
+
+# %% Cycle number effect on refuting null hypothesis
+
+# This section examines the effect of gait cycle number and sampling on the findings
+# from null hypothesis testing, specifically the effect of speed on gait biomechanics.
+# The original work of Fukuchi et al. (2017) examined this question, and found 
+# a series of biomechanical variables are impacted by gait speed. Here we iteratively
+# replicate this hypothesis testing with varying numbers and differently sampled
+# gait cycles contributing to participant data. The theory being tested here is
+# how does the number and selection of gait cycles impact the answers to our hypothesis
+# testing.
+
+##### TODO: considerations around 0D vs. 1D variables, ANOVA vs. t-test
+
+##### To start with, replicate the Fukuchi et al. analysis...
+
+##### Start with peak knee flexion as a test
+vv = 3
+
+
+#Extract each participants gait cycles into time normalised arrays
+
+#Set dictionary to store data in
+normDataDict = {key: [] for key in trialList}
+
+#Loop through subjects
+for ii in range(len(subList)):
+    
+    #Loop through trial types
+    for tt in range(len(trialList)):
+    
+        #Extract the current participants kinematic data relevant to
+        #current trial tupe. Get the index corresponding to this in the
+        #data dictionary.
+        subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+        trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+        currInd = list(set(subInd) & set(trialInd))[0]
+        
+        #Get the right foot strike indices
+        rightFS = dataDict['rightFS'][currInd]
+        
+        #Set a space to store normalised data into for calculating
+        #current subjects mean
+        normData = np.zeros((len(rightFS)-1,101))
+        
+        #Get the IK dataframe
+        df_ik = dataDict['kinematics'][currInd]
+        
+        #Loop through number of gait cycles and normalise kinematics
+        for nn in range(len(rightFS)-1):
+            
+            #Extract data between current heel strikes
+        
+            #Get start and end time
+            startTime = rightFS[nn]
+            endTime = rightFS[nn+1]
+            
+            #Create a boolean mask for in between event times
+            extractTime = ((df_ik['time'] > startTime) & (df_ik['time'] < endTime)).values
+            
+            #Extract the time values
+            timeVals = df_ik['time'][extractTime].values
+            
+            #Extract the data
+            dataVals = df_ik[analysisVar[vv]][extractTime].values
+            
+            #Normalise data to 0-100%
+            newTime = np.linspace(timeVals[0],timeVals[-1],101)
+            interpData = np.interp(newTime,timeVals,dataVals)                    
+            
+            #Store interpolated data in array
+            normData[nn,:] = interpData
+            
+        #Append normalised data into appropriate dictionary key
+        normDataDict[trialList[tt]].append(normData)
+        
+        #Print confirmation
+        print('Data normalised and extracted for '+subList[ii]+
+              ' for '+trialList[tt]+'.')
+
+#Set dictionary to store 0D ANOVA results
+anovaDict = {'extractNo': [], 'analysisVar': [], 'startPoint': [],
+             'analysisData': [], 'mean': [], 'sd': [],
+             'aovrmResults': [], 'F': [], 'p': [], 'rejectH0': []}
+
+#Set dictionary to store 0D post-hoc pairwise results
+pairwiseDict = {'extractNo': [], 'analysisVar': [], 'startPoint': [],
+                'comparison': [], 'val0D': [], 'mean': [], 'sd': [],
+                't': [], 'p': [], 'rejectH0': []}
+
+#Loop through the extraction numbers and run analyses
+for ee in range(len(extractNo)):
+    
+    #Set seed for consistent subsequent random sampling
+    random.seed(12345)
+    
+    #Set current extract number
+    currNo = int(extractNo[ee])
+    
+    #Loop through the sampling number
+    for ss in range(nSamples):
+        
+        #Set dictionary to store data into for current sample iteration
+        analysisDict = {'subID': [], 'val0D': [], 'speed': []}
+        
+        #Select the starting point to take gait cycles from based on current
+        #extraction number
+        
+        #Create an appropriate list to select from based on min. gait cycles
+        gcStarts = np.linspace(0,minGC,minGC+1)
+        #Remove the final X values relative to current extraction number, as
+        #these won't leave enough to grab
+        goZone = gcStarts[0:int(-extractNo[ee])]
+        
+        #Choose the starting point
+        startPoint = int(random.choice(goZone))
+        
+        # #Set an array to store each subjects trial datasets in for this iteration
+        # ##### NOTE: for 0D variable
+        # analysisVals = np.zeros((len(subList),len(trialList)))
+
+        #Loop through subjects and get their data for the current sample iteration
+        for ii in range(len(subList)):
+            
+            #Loop through trials
+            for tt in range(len(trialList)):
+                                
+                #Extract the array for the current participant and trial
+                currData = normDataDict[trialList[tt]][ii]
+                
+                #Extract the current selection of gait cycles based on the starting
+                #point and current extraction number
+                currExtraction = currData[startPoint:startPoint+currNo,:]
+                
+                #Calculate the peak value across each cycle and get the mean peak
+                #Append this to the analysis dictionary in appropriate spot
+                ##### NOTE: for 0D variable
+                analysisDict['val0D'].append(np.mean(np.max(currExtraction, axis = 1), axis = 0))
+                
+                #Append additional factors to dictionary
+                analysisDict['subID'].append(ii)
+                analysisDict['speed'].append(trialList[tt])
+        
+        #Convert dictionary to dataframe for ANOVA
+        df_analysis = pd.DataFrame.from_dict(analysisDict)
+        
+        #Run and fit the one-way repeated measures ANOVA
+        aovrm = AnovaRM(df_analysis, 'val0D', 'subID', within = ['speed'])
+        aovrmResults = aovrm.fit()
+        # print(aovrmResults)
+        
+        #Extract ANOVA results for current iteration
+        F = aovrmResults.anova_table['F Value']['speed']
+        p = aovrmResults.anova_table['Pr > F']['speed']
+        if p < 0.05:
+            rejectH0_anova = True
+        else:
+            rejectH0_anova = False
+        
+        #Store ANOVA results in dictionary
+        anovaDict['extractNo'].append(currNo)
+        anovaDict['analysisVar'].append(analysisVar[vv])
+        anovaDict['startPoint'].append(startPoint)
+        anovaDict['analysisData'].append(df_analysis)
+        anovaDict['mean'].append(df_analysis.groupby('speed').mean()['val0D'])
+        anovaDict['sd'].append(df_analysis.groupby('speed').std()['val0D'])
+        anovaDict['aovrmResults'].append(aovrmResults)
+        anovaDict['F'].append(F)
+        anovaDict['p'].append(p)
+        anovaDict['rejectH0'].append(rejectH0_anova)
+        
+        #Get and run post-hoc if appropriate            
+        #Loop through pairwise trial comparisons
+        for pp in range(len(trialList)-1):
+            for qq in range(pp+1,len(trialList)):
+                
+                #Extract arrays to compare
+                y1 = df_analysis.loc[df_analysis['speed'] == trialList[pp],'val0D'].to_numpy()
+                y2 = df_analysis.loc[df_analysis['speed'] == trialList[qq],'val0D'].to_numpy()
+                
+                if rejectH0_anova:
+                
+                    #Compare
+                    t0,p0 = stats.ttest_rel(y1, y2)
+                    
+                #Append results to dictionary
+                pairwiseDict['extractNo'].append(currNo)
+                pairwiseDict['analysisVar'].append(analysisVar[vv])
+                pairwiseDict['startPoint'].append(startPoint)
+                pairwiseDict['comparison'].append([trialList[pp],trialList[qq]])
+                pairwiseDict['val0D'].append([y1,y2])
+                pairwiseDict['mean'].append([np.mean(y1),np.mean(y2)])
+                pairwiseDict['sd'].append([np.std(y1),np.std(y2)])
+                if rejectH0_anova:
+                    pairwiseDict['t'].append(t0)
+                    pairwiseDict['p'].append(p0)
+                    if p0 < 0.05:
+                        pairwiseDict['rejectH0'].append(True)
+                    else:
+                        pairwiseDict['rejectH0'].append(False)           
+                else:
+                    pairwiseDict['t'].append(np.nan)
+                    pairwiseDict['p'].append(np.nan)
+                    pairwiseDict['rejectH0'].append(np.nan)
+                    
+        #Print confirmation
+        print('Completed 0D speed comparison '+str(ss+1)+' of '+str(nSamples)+' for '+
+              str(currNo)+' gait cycles of '+analysisVar[vv])
+
+
+#### Does the null hypothesis rejection rate need to be contrasted with a power
+#### analysis of sorts to discover our true potential discovery rate?????
+        
 
 # %% Cycle number comparison to 'ground truth' mean
 
