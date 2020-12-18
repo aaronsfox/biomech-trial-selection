@@ -29,6 +29,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import random
+from scipy import stats
 
 # %% Define functions
 
@@ -135,6 +136,15 @@ for dd in range(len(df_subInfo['Subject'])):
     else:
         #Leave as is and append
         df_subInfo.at[dd, 'Subject'] = 'PDS'+df_subInfo['Subject'][dd]
+        
+#Set vision condition variable
+visionList = ['Open', 'Closed']
+
+#Set surface condition list
+surfaceList = ['Rigid', 'Foam']
+
+#Set age group condition list
+groupList = ['Young', 'Old']
 
 # %% Collate processed data
 
@@ -151,11 +161,27 @@ for ii in range(len(subList)):
     #Navigate to subject directory
     os.chdir(subList[ii])
     
-    #Get trial list
-    trialList = df_subInfo.loc[df_subInfo['Subject'] == subList[ii],['Trial']].values.tolist()
-    #Flatten this trial list
-    trialList = [item for sublist in trialList for item in sublist]
+    #Get trials
+    df_trialList = df_subInfo.loc[df_subInfo['Subject'] == subList[ii],
+                                  ['Trial','Vision','Surface','Rep']]#.values.tolist()
     
+    #Set list to store trials in
+    trialList = list()
+    
+    #Randomly select one trial from each of the four conditions for analysis
+    for vv in range(len(visionList)):
+        for ss in range(len(surfaceList)):
+            #Set a random seed based on loop iterations so consistent choice is made
+            random.seed((vv+1)*(ss+2)*(ii+3))
+            #Make the pseudo random choice from the list of possible repetitions
+            repChoice = random.choice([1,2,3])
+            #Extract the current combination and selected rep from the dataframe
+            #Append the trial name to the list
+            trialList.append(df_trialList.loc[(df_trialList['Vision'] == visionList[vv]) &
+                                              (df_trialList['Surface'] == surfaceList[ss]) &
+                                              (df_trialList['Rep'] == repChoice),
+                                              ['Trial']].values[0][0])
+
     #Loop through trials
     for tt in range(len(trialList)):
         
@@ -244,12 +270,12 @@ for ii in range(len(subList)):
         dataDict['COPNET_ML_Disp'].append(copNet_ML_disp)
         dataDict['COPNET_Total_Disp'].append(copNet_totalDisp)
         
-        #Plot data for later error checking
-        plotCOP(subList[ii], currSurface, currVision, df_grf)
+        # #Plot data for later error checking
+        # plotCOP(subList[ii], currSurface, currVision, df_grf)
         
-        #Save figure
-        plt.savefig(trialList[tt]+'_copFig.png')
-        plt.close()
+        # #Save figure
+        # plt.savefig(trialList[tt]+'_copFig.png')
+        # plt.close()
         
     #Print confirmation
     print('Data extracted for '+subList[ii]+'. '+str(ii+1)+' of '+str(len(subList))+' done...')
@@ -259,9 +285,6 @@ for ii in range(len(subList)):
     
 #Convert dictionary to dataframe
 df_data = pd.DataFrame.from_dict(dataDict)
-
-#### TODO: Loop through subjects and randomly select one of each trial type
-#### for further analysis...
     
 # %% Run tests
 
@@ -287,19 +310,7 @@ alpha = 0.05
 #Set duration splits to work through
 durSplits = np.linspace(5, 60, int((60-5)/5)+1)
 
-#Set vision condition variable
-visionList = ['Open', 'Closed']
-
-#Set surface condition list
-surfaceList = ['Rigid', 'Foam']
-
-#Set age group condition list
-groupList = ['Young', 'Old']
-
 # %% Sequential analysis with increasing analysis duration
-
-##### TODO
-    # Split this across the various grouping conditions
 
 # This analysis follows a similar line to:
     
@@ -395,13 +406,14 @@ df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
 fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (8,3.5))
 
 #Plot the 0.25 SD bandwidth
+##### TODO: add annotations?
 ax.axhline(y = 0.25, linewidth = 1, linestyle = '--', color = 'grey')
 ax.axhline(y = -0.25, linewidth = 1, linestyle = '--', color = 'grey')
 
 #Extract current analysis variable dataframe
 df_currSeq = df_seqAnalysis.loc[(df_seqAnalysis['analysisVar'] == 'COPNET_Total_Disp'),]
 
-##### NOTE: below plot doesn't consider multiple trials by certain subjects
+##### NOTE: below plot only considers one level of split with the hue
 
 #Plot boxplot with Seaborn
 sns.boxplot(data = df_currSeq, x = 'duration', y = 'seqVal', hue = 'vision',
@@ -413,6 +425,8 @@ sns.boxplot(data = df_currSeq, x = 'duration', y = 'seqVal', hue = 'vision',
 ####
 #### Should calculate this and for each variable calculate the duration
 #### it takes to get to their stability point...
+#### Could then present mean and 95% CI's for these values, along with range for
+#### min and max...
 ####
 #### Also consider the appropriateness of a 0.25 SD threshold with the absolute
 #### maximum value here --- it could be quite sensitive and may be valid to calculate
@@ -506,8 +520,162 @@ for tt in range(len(df_data)):
             #Set strikes for current sample in dictionary
             sampleDict['startPoint1'].append(s1)
             sampleDict['startPoint2'].append(s2)
+            
+    #Print updates
+    print('Sampling complete for '+str(tt+1)+' of '+str(len(df_data))+' trials...')
 
 #Convert dictionary to a dataframe
 df_samples = pd.DataFrame.from_dict(sampleDict)
 
 # %% Duration comparison to 'ground truth' mean
+
+#Set a dictionary to store findings of each iteration in
+##### TODO
+    #Include some sort of standardised error/effect of difference???
+groundTruthDict = {'extractDur': [], 'vision': [], 'surface': [],
+                    'rejectH0': [], 'tStatistic': [], 'pVal': [],
+                    'analysisVar': [],
+                    'groundTruth': [], 'extract': [],
+                    'groundTruth_m': [], 'extract_m': [], 'meanAbsError': []}
+
+#Loop through the different trial types
+for vv in range(len(visionList)):
+    for ss in range(len(surfaceList)):
+    
+        ##### TODO: consider doing different variables...
+        ##### TODO: consider doing different subject groups???
+    
+        #Set the 'ground truth' mean array
+        groundTruth = np.zeros((len(subList)))
+        
+        #Loop through subjects
+        for ii in range(len(subList)):
+            
+            #Extract the current participants data for the current trial combination
+            df_currTrial = df_data.loc[(df_data['vision'] == visionList[vv]) &
+                                       (df_data['surface'] == surfaceList[ss]) &
+                                       (df_data['subID'] == subList[ii]),].reset_index()
+            
+            #Calculate the total mean from the entire duration and set in ground truth array
+            time = df_currTrial['grf'][0]['Time'].to_numpy()
+            copTotalDisp = df_currTrial['COPNET_Total_Disp'].to_numpy()[0]
+            groundTruth[ii] = np.mean(copTotalDisp, axis = 0)
+        
+        #Loop through the extraction durations
+        for ee in range(len(extractDur)):
+            
+            #Set current extract number
+            currDur = extractDur[ee]
+            
+            #Extract the samples for the current duration
+            df_currSamples = df_samples.loc[(df_samples['extractDuration'] == currDur) &
+                                            (df_samples['vision'] == visionList[vv]) &
+                                            (df_samples['surface'] == surfaceList[ss]),]
+            
+            #Loop through the sampling number
+            for nn in range(nSamples):
+                
+                #Set array to store each subjects two datasets for this sample iteration
+                extract = np.zeros((len(subList)))
+                
+                #Loop through subjects and get their data for the current sample
+                for ii in range(len(subList)):
+                                        
+                    #Extract the dataframe that matches the current subject
+                    #As part of this also extract the row that matches the current
+                    #sampling iteration index
+                    df_currSub = df_currSamples.loc[df_currSamples['subID'] == subList[ii],]
+                    df_currIter = df_currSub.iloc[nn]
+                    
+                    #Extract the current participants data for the current trial combination
+                    df_currTrial = df_data.loc[(df_data['vision'] == visionList[vv]) &
+                                               (df_data['surface'] == surfaceList[ss]) &
+                                               (df_data['subID'] == subList[ii]),].reset_index()
+                    
+                    #Extract the current trial data
+                    time = df_currTrial['grf'][0]['Time'].to_numpy()
+                    copTotalDisp = df_currTrial['COPNET_Total_Disp'].to_numpy()[0]
+                    
+                    #Identify the indices to calculate the mean over based on the start point
+                    #and the current duration
+                    startInd = np.where(time == df_currIter['startPoint1'])[0][0]
+                    endInd = np.where(time == df_currIter['startPoint1']+currDur-0.01)[0][0]
+                    
+                    #Extract the data section and calculate the mean, store in array
+                    extract[ii] = np.mean(copTotalDisp[startInd:endInd], axis = 0)
+                
+                #Run paired t-test
+                t,p = stats.ttest_rel(groundTruth, extract)
+                if p < 0.05:
+                    h0reject = True
+                else:
+                    h0reject = False
+                
+                #Calculate mean absolute error of current two curves
+                groundTruth_m = np.mean(groundTruth, axis = 0)
+                extract_m = np.mean(extract, axis = 0)
+                mae = np.mean(abs(groundTruth_m - extract_m))           
+                
+                #Collate results from this sampling iteration into dictionary
+                groundTruthDict['extractDur'].append(currDur)
+                groundTruthDict['vision'].append(visionList[vv])
+                groundTruthDict['surface'].append(surfaceList[ss])
+                groundTruthDict['rejectH0'].append(h0reject)
+                groundTruthDict['tStatistic'].append(t)
+                groundTruthDict['pVal'].append(p)
+                ####
+                #### TODO: fix with different variables...
+                ####
+                groundTruthDict['analysisVar'].append('COPNET_Mean_Disp')
+                groundTruthDict['groundTruth'].append(groundTruth)
+                groundTruthDict['extract'].append(extract)
+                groundTruthDict['groundTruth_m'].append(groundTruth_m)
+                groundTruthDict['extract_m'].append(extract_m)
+                groundTruthDict['meanAbsError'].append(mae)
+                
+                #Print confirmation
+                print('Completed ground truth comparison '+str(nn+1)+' of '+str(nSamples)+' for '+
+                      str(currDur)+' second duration of '+visionList[vv]+' '+
+                      surfaceList[ss]+' data.')
+
+#Convert dictionary to dataframe
+df_groundTruthComp = pd.DataFrame.from_dict(groundTruthDict)
+
+#Visualise null hypothesis rejection rate across durations
+
+#### TODO: currently just one variable and vision/surface combo...
+
+##### NOTE: data doesn't currently seem right...false positive rate seems far 
+##### too high...
+
+#Initialise figure
+fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (6,3.5))
+
+#Plot the expected false positive rate
+ax.axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
+
+#Loop through variables
+vv = 0 #visionList
+ss = 0 #surfaceList
+
+    #Initialise arrays to store H0 reject rate vs. duration
+    X = np.zeros((len(extractDur),1))
+    Y = np.zeros((len(extractDur),1))
+    
+    #Loop through extraction number to get the count and H0 rejection rate
+    for ee in range(len(extractDur)):
+        
+        #Set extraction number in array
+        X[ee,0] = extractDur[ee]
+        
+        #Sum the number of times H0 was rejected and add to array
+        Y[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['vision'] == visionList[vv]) &
+                                             (df_groundTruthComp['surface'] == surfaceList[ss]) &
+                                             (df_groundTruthComp['extractDur'] == extractDur[ee]) &
+                                             (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
+    
+    #Plot data
+    ax.plot(X, Y, color = 'red', marker = 'o',
+            label = 'COP Mean Displacement')
+                
+# %%

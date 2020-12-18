@@ -478,16 +478,34 @@ minGC = min(dataDict['rGC_n'])
 
 ### NOTE
     #The above calculation determines 34 to be the minimum number of gait cycles
-    #across all *CURRENT* participants
+    #across all all participants
     #Considering this we can probably safely go up to 15 and have minimum overlap
 
-### TODO
-    #Update and check once final participants added
-    
 # %% TODO: Determine most and least variable...
 
 #Likely knee flexion and hip rotation...
     
+# %% Extract data and run tests
+
+#Settings for subsequent tests
+
+#Set analysis variable
+analysisVar = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r',
+               'knee_angle_r', 'ankle_angle_r']
+
+#Set labels for analysis variables
+analysisLabels = ['Hip Flexion', 'Hip Adduction', 'Hip Rotation',
+                  'Knee Flexion', 'Ankle Dorsi/Plantarflexion']
+
+#Set colour palette for analsis variables
+analysisCol = sns.color_palette('colorblind', len(analysisVar))
+
+#Set symbols for analysis variables
+analysisSym = ['s', 'o', 'd', '^', 'v']
+
+#Set the alpha level for the t-tests
+alpha = 0.05
+
 # %% Determine gait cycle extraction points
 
 ### TODO:
@@ -583,31 +601,13 @@ for ii in range(len(subList)):
                 #Set strikes for current sample in dictionary
                 sampleDict['footStrikes1'].append(list(map(round,list(np.linspace(s1,s1+int(extractNo[ee]),int(extractNo[ee]+1))))))
                 sampleDict['footStrikes2'].append(list(map(round,list(np.linspace(s2,s2+int(extractNo[ee]),int(extractNo[ee]+1))))))
-
+    
+    #Print confirmation for subject
+    print('Samples extracted for '+subList[ii])
+    
 #Convert dictionary to a dataframe
 df_samples = pd.DataFrame.from_dict(sampleDict)
-
-# %% Extract data and run tests
-
-#Settings for subsequent tests
-
-#Set analysis variable
-analysisVar = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r',
-               'knee_angle_r', 'ankle_angle_r']
-
-#Set labels for analysis variables
-analysisLabels = ['Hip Flexion', 'Hip Adduction', 'Hip Rotation',
-                  'Knee Flexion', 'Ankle Dorsi/Plantarflexion']
-
-#Set colour palette for analsis variables
-analysisCol = sns.color_palette('colorblind', len(analysisVar))
-
-#Set symbols for analysis variables
-analysisSym = ['s', 'o', 'd', '^', 'v']
-
-#Set the alpha level for the t-tests
-alpha = 0.05
-
+    
 # %% Sequential analysis with increasing gait cycle number
 
 # This analysis follows a similar line to:
@@ -624,11 +624,14 @@ alpha = 0.05
 # Each point will fit within this bandwidth differently, so we can look at every
 # point - but for true 'stability' you probably want every point to fall within
 # this bandwidth, right?
+#
+# Here we also consider 0D peak variables as a comparison to the 1D curves.
 
 #Set a dictionary to store findings of sequential analysis
 seqDict = {'nGC': [], 'subID': [], 'trialID': [], 'analysisVar': [],
-           'contSEQ': [], 'maxSEQ': [], 'minSEQ': [], 'meanSEQ': [],
-           'absMaxSEQ': [], 'absMeanSEQ': []}
+           # 'contSEQ': [], 'peakSEQ': [], 'maxSEQ': [], 'minSEQ': [], 'meanSEQ': [],
+           # 'absMaxSEQ': [], 'absMeanSEQ': [],
+           'seqVal': [], 'varType': []}
 
 #Loop through trial types
 for tt in range(len(trialList)):
@@ -641,13 +644,9 @@ for tt in range(len(trialList)):
         
         #Loop through participants and calculate individual stability
         for ii in range(len(subList)):
-            
-            #Set the total mean and sd array
-            total_m = np.zeros((1,101))
-            total_sd = np.zeros((1,101))
 
             #Extract the current participants kinematic data relevant to
-            #current trial tupe. Get the index corresponding to this in the
+            #current trial type. Get the index corresponding to this in the
             #data dictionary.
             subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
             trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
@@ -689,9 +688,12 @@ for tt in range(len(trialList)):
                 normData[nn,:] = interpData
                 
             #Calculate the mean of the current subjects normalised data
-            #Store in the current ground truths array for SPM1D analysis
             total_m = np.mean(normData, axis = 0)
             total_sd = np.std(normData, axis = 0)
+            
+            #Calculate the peak 0D variable mean and SD for later analysis
+            peak_m = np.mean(np.max(normData, axis = 1), axis = 0)
+            peak_sd = np.std(np.max(normData, axis = 1), axis = 0)
             
             #Loop through n+1 number of gait cycles sequentially and assess
             #points relative to +/- 0.25 SD bounds
@@ -703,18 +705,50 @@ for tt in range(len(trialList)):
                 #Normalise to zero mean and 1 SD
                 curr_norm = (curr_m - total_m) / total_sd
                 
+                #Calculate peak mean for 0D variable
+                curr_peak_m = np.mean(np.max(normData[0:nn+1,:], axis = 1), axis = 0)
+                
+                #Normalise to zero mean and 1SD
+                curr_peak_norm = (curr_peak_m - peak_m) / peak_sd
+                
                 #Add to data dictionary
                 #Include calculations for mean, min and max sequential variables
+                
+                #1D values
                 seqDict['nGC'].append(nn+1)
                 seqDict['subID'].append(subList[ii])
                 seqDict['trialID'].append(trialList[tt])
                 seqDict['analysisVar'].append(analysisVar[vv])
-                seqDict['contSEQ'].append(curr_norm)
-                seqDict['maxSEQ'].append(np.max(curr_norm))
-                seqDict['minSEQ'].append(np.min(curr_norm))
-                seqDict['meanSEQ'].append(np.mean(curr_norm))
-                seqDict['absMaxSEQ'].append(np.max(np.abs(curr_norm)))
-                seqDict['absMeanSEQ'].append(np.mean(np.abs(curr_norm)))
+                # seqDict['contSEQ'].append(curr_norm)
+                # seqDict['peakSEQ'].append(curr_peak_norm)
+                # seqDict['maxSEQ'].append(np.max(curr_norm))
+                # seqDict['minSEQ'].append(np.min(curr_norm))
+                # seqDict['meanSEQ'].append(np.mean(curr_norm))
+                # seqDict['absMaxSEQ'].append(np.max(np.abs(curr_norm)))
+                # seqDict['absMeanSEQ'].append(np.mean(np.abs(curr_norm)))
+                seqDict['seqVal'].append(np.max(np.abs(curr_norm)))
+                seqDict['varType'].append('1D')
+                
+                #0D values
+                seqDict['nGC'].append(nn+1)
+                seqDict['subID'].append(subList[ii])
+                seqDict['trialID'].append(trialList[tt])
+                seqDict['analysisVar'].append(analysisVar[vv])
+                seqDict['seqVal'].append(curr_peak_norm)
+                seqDict['varType'].append('0D')
+                
+            #Print confirmation
+            print('Sequential analysis complete for '+subList[ii]+
+                  ' for '+analysisVar[vv]+' during '+trialList[tt])
+        
+        #Print confirmation
+        print('Sequential analysis complete for '+analysisVar[vv]+
+              '. '+str(vv+1)+' of '+str(len(analysisVar))+
+              ' variables completed for '+trialList[tt])
+    
+    #Print confirmation
+    print('Sequential analysis completed for '+trialList[tt]+
+          '. '+str(tt+1)+' of '+str(len(trialList))+' trial types completed.')
 
 #Convert dictionary to a dataframe
 df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
@@ -725,6 +759,7 @@ df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
 #####
 #####
 ##### TODO: FIX UP!
+##### A dot plot with 95% CI's and outliers might be more appropriate?
 #####
 #####
 
@@ -732,29 +767,39 @@ df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
 fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (8,3.5))
 
 #Plot the 0.25 SD bandwidth
+##### TODO: add annotation?
 ax.axhline(y = 0.25, linewidth = 1, linestyle = '--', color = 'grey')
+ax.axhline(y = -0.25, linewidth = 1, linestyle = '--', color = 'grey')
 
 #Extract current trial and analysis variable dataframe
 df_currSeq = df_seqAnalysis.loc[(df_seqAnalysis['trialID'] == trialList[tt]) &
                                 (df_seqAnalysis['analysisVar'] == analysisVar[vv]),]
 
 #Plot boxplot with Seaborn
-sns.boxplot(data = df_currSeq, x = 'nGC', y = 'absMaxSEQ',
-            whis = [0,100], color = 'white', ax = ax)
+sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
+            whis = [0,100], palette = 'colorblind', hue = 'varType',
+            ax = ax)
 
 #### Boxplots demonstrate the number of gait cycles for *EVERYONE* to get under
 #### the 0.25 SD threshold for X consecutive cycles --- but this could actually
 #### vary from person to person...
 #### Should calculate this and for each variable calculate the number of cycles
 #### it takes to get to their stability point...
+#### Could then present mean and 95% CI's for these values, along with range for
+#### min and max...
 ####
 #### Also consider the appropriateness of a 0.25 SD threshold with the absolute
 #### maximum value here --- it could be quite sensitive and may be valid to calculate
 #### the number of cycles fro variable thresholds...
-
-
+####
+#### Still takes a long time for peak values to come under the 0.25 SD threshold
+#### Could consider taking absolute of these peak SD sequential values too for
+#### consistency with the 1D variables...
 
 # %% Cycle number comparison to 'ground truth' mean
+
+##### TODO
+    #0D peak variable comparison as well?
 
 #Set a dictionary to store findings of each iteration in
 ##### TODO
@@ -834,12 +879,14 @@ for tt in range(len(trialList)):
             
             #Extract the dataframe for the current extraction number
             df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
-            
+
             #Loop through the sampling number
             for ss in range(nSamples):
                 
                 ##### TODO: consider joblib parallel pool here...?
                 ##### https://blog.dominodatalab.com/simple-parallelization/
+                
+                #### doesn't seem to work that well...
                 
                 #Set array to store each subjects two datasets for this sample iteration
                 extract = np.empty((len(subList),101))
@@ -945,7 +992,7 @@ for tt in range(len(trialList)):
                 print('Completed ground truth comparison '+str(ss+1)+' of '+str(nSamples)+' for '+
                       str(currNo)+' gait cycles of '+analysisVar[vv]+' from '+
                       trialList[tt])
-                
+
 #Convert dictionary to a dataframe
 df_groundTruthComp = pd.DataFrame.from_dict(groundTruthDict)
 
