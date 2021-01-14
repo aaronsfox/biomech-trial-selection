@@ -1,0 +1,97 @@
+---
+title: "Gait cycle selection in treadmill running data: Does it matter?"
+author:
+  - name: Aaron S. Fox
+    affiliation: Centre for Sport Research
+    footnote: 1
+  - name: Meghan F. Keast
+    affiliation: Centre for Sport Research
+  - name: John Warmenhoven
+    affiliation: UNSW
+  - name: Jason Bonacci
+    affiliation: Centre for Sport Research
+address:
+  - code: Centre for Sport Research
+    address: Centre for Sport Research, School of Exercise and Nutrition Sciences, Deakin University, Geelong, Australia
+  - code: UNSW
+    address: Department, Street, City, State, Zip
+footnote:
+  - code: 1
+    text: "Corresponding Author"
+abstract: |
+  Insert abstract...
+
+journal: ar$\chi$iv
+date: "Version 1.0:`r Sys.Date()`"
+bibliography: mybibfile.bib
+#linenumbers: true
+#numbersections: true
+csl: elsevier-harvard.csl
+output: rticles::elsevier_article
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+#Multiple knit options - in YAML
+# knit: (function(inputFile, encoding) {
+#   rmarkdown::render(inputFile, encoding = encoding,
+#   output_format = "all") })
+
+```
+                                                  
+# Introduction
+
+
+- Variety of methods for selecting gait cycles from treadmill-based studies of running...
+
+
+- Common process within experimental studies is to collect a certain number of gait cycles and use the average of this biomechanical data to compute a representative mean for the individual...
+
+
+- There is a need to understand the effect of gait cycle number on biomechanical outcome variables from a time cost perspective. We can somewhat easily collect a significant number of gait cycles within a laboratory environment in a treadmill-based test. Having participants settle into a steady state through continuous running over X time period is in fact recommended (?). However, there are potential time savings to be made within analysis protocols should we need to process fewer gait cycles (i.e. time within IK-like processes, time with data cleaning etc.). On the flip side, should only a small number of gait cycles result in 'unstable' biomechanical variables that aren't necessarily representative of an individuals running biomechanics, this would suggest a need to collect and process more gait cycles in calculating a representative mean for the individual... 
+
+
+We sought to understand the impact of the number of gait cycles selected, along with where these are selected from during a continuous bout of treadmill running, on biomechanical data and ... how this may influence conclusions...
+
+First, we used sequential analysis to understand the stability of biomechanical variables as gait cycle number is increased.
+
+Second, we examined how representative varying samples of gait cycles were to an individuals entire bout of continuous treadmill running.
+
+Third, we examined whether sampling gait cycles of varying number from different sections of an individuals bout of continuous treadmill running could influence biomechanical outcome variables.
+
+Fourth, we examined whether varying samples of gait cycles could influence our capacity to detect biomechanical differences between conditions — specifically, between running at two different speeds.
+
+
+# Methods
+
+
+We used the public dataset of treadmill running biomechanics provided by Fukuchi et al.[@Fukuchi2017]. The specific details of this dataset can be found in the associated paper [@Fukuchi2017]. Briefly, this dataset contains lower-extremity kinematics and kinetics of 28 regular runners (27 male, 1 female; age = 34.8 ± 6.7 years; height = 176.0 ± 6.8 cm; mass = 69.6 ± 7.7 kg; running experience = 8.5 ± 7.0 years; running pace = 4.1 ± 0.4 min/km) [@Fukuchi2017]. Running kinematics were collected using a 12-camera 3D motion capture system (Raptor-4, Motion Analysis, Santa Rosa, CA, United States) and ground reaction force (GRF) data via an instrumented dual-belt treamill (FIT, Bertec, Columbus, OH, United States) [@Fukuchi2017]. Participants ran on the treadmill at three designated speeds (2.5m·s^-1^, 3.5m·s^-1^ and 4.5m·s^-1^), during which a three-minute accommodation period was provided followed by a 30-second data collection period [@Fukuchi2017]. Within our work, we only used data collected from the 2.5m·s^-1^ and 4.5m·s^-1^ trials.
+
+We processed the experimental data from Fukuchi et al.[@Fukuchi2017] using OpenSim 4.0 [@Delp2007]. Segment geometry of the generic musculoskeletal model of the pelvis and lower limb provided by Lai et al.[@Lai2017] were scaled for each participant using their static calibration trial, which was also used as a reference for adjusting marker positions on the model. Lower limb joint angles were calculated using filtered (10Hz low-pass 4^th^ order Butterworth) marker trajectory data within inverse kinematics analysis. GRF data were also filtered using the same cut-off frequency and filter. The filtering procedures reflected those originally performed by Fukuchi et al.[@Fukuchi2017]. Foot strike and toe-off events were determined when the vertical GRF crossed a 20N threshold, in line with the original work on this dataset [@Fukuchi2017].
+
+
+
+- 0D and 1D variables...
+- Data from right limb
+
+
+# Results
+
+
+
+
+
+``` {r cars}
+
+#Test some r code
+summary(cars)
+
+```
+
+
+
+
+
+
