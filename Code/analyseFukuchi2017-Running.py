@@ -482,7 +482,7 @@ minGC = min(dataDict['rGC_n'])
     #The above calculation determines 34 to be the minimum number of gait cycles
     #across all all participants
     #Considering this we can probably safely go up to 15 and have minimum overlap
-    #We can increase this to 20 when not comparing cycles within a participant
+    #We can increase this to minimum when not comparing cycles within a participant
     
 # %% Extract data and run tests
 
@@ -507,13 +507,9 @@ alpha = 0.05
 
 # %% Determine gait cycle extraction points
 
-### TODO:
-    #We could actually go higher for comparison to 'ground truth' given we don't
-    #need to compare two sets of gait cycles...
-
 #Set the list of gait cycles to extract
 minExtract = 5
-maxExtractSingle = 20
+maxExtractSingle = minGC #### TODO: different speeds though?
 maxExtractDual = 15
 extractNo = np.linspace(minExtract,maxExtractSingle,
                         maxExtractSingle-minExtract+1)
@@ -625,12 +621,12 @@ for ii in range(len(subList)):
                     sampleDict['footStrikes2'].append(np.nan)
     
     #Print confirmation for subject
-    print('Samples extracted for '+subList[ii])
+    print('Cycle sample numbers extracted for '+subList[ii])
     
 #Convert dictionary to a dataframe
 df_samples = pd.DataFrame.from_dict(sampleDict)
     
-# %% Sequential analysis with increasing gait cycle number
+# %% RQ1: Sequential analysis with increasing gait cycle number
 
 # This analysis follows a similar line to:
     #
@@ -771,6 +767,245 @@ for tt in range(len(trialList)):
 
 #Convert dictionary to a dataframe
 df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
+
+#Determine the point of 'stability' across participants and variables at different
+#standard deviation thresholds. The works mentioned above use a 0.25 SD threshold,
+#however we can also investigate other values to provide an indication of 'stability'
+#at different levels
+
+#Set variable for stability levels
+stabilityLevels = [0.25, 0.50, 0.75, 1.00]
+
+#Set dictionary to store data in
+seqResultsDict = {'subID': [], 'trialID': [], 'analysisVar': [], 'varType': [],
+                  'stabilityThreshold': [], 'stabilityGC': []}
+
+#Loop through trial types
+for tt in range(len(trialList)):
+
+    #Loop through variables
+    for vv in range(len(analysisVar)):
+        
+        #Loop through participants and calculate individual stability
+        for ii in range(len(subList)):
+            
+            #Extract data for the current participant, trial and variable
+            #0D variable type
+            df_currSeq_0D = df_seqAnalysis.loc[(df_seqAnalysis['trialID'] == trialList[tt]) &
+                                               (df_seqAnalysis['analysisVar'] == analysisVar[vv]) &
+                                               (df_seqAnalysis['subID'] == subList[ii]) &
+                                               (df_seqAnalysis['varType'] == '0D'),].reset_index(drop = True)
+            #1D variable type
+            df_currSeq_1D = df_seqAnalysis.loc[(df_seqAnalysis['trialID'] == trialList[tt]) &
+                                               (df_seqAnalysis['analysisVar'] == analysisVar[vv]) &
+                                               (df_seqAnalysis['subID'] == subList[ii]) &
+                                               (df_seqAnalysis['varType'] == '1D'),].reset_index(drop = True)
+            
+            #Loop through stability thresholds and extract number of gait cycles
+            #when the stability value is reached
+            for ss in range(len(stabilityLevels)):
+                
+                #Do 0D variable first
+                
+                #Set start gait cycle value to start check at
+                checkGC = np.min(df_currSeq_0D['nGC'].unique())
+                
+                #Identify max gait cycle number
+                maxGC = np.max(df_currSeq_0D['nGC'].unique())
+                
+                #Use while loop to search through gait cycle numbers
+                while checkGC < maxGC:
+                    
+                    #Get value for current check
+                    currVal = df_currSeq_0D.loc[df_currSeq_0D['nGC'] == checkGC, 'seqVal'].values[0]
+                    
+                    #Check if current value is under threshold
+                    if np.abs(currVal) < stabilityLevels[ss]:
+                        
+                        #Check if the remaining values all remain under threshold
+                        
+                        #Get the remaining values
+                        remVals = np.abs(df_currSeq_0D.loc[df_currSeq_0D['nGC'] > checkGC, 'seqVal'].values)
+                        
+                        #Check if all values are under the threshold
+                        if (remVals < stabilityLevels[ss]).all():
+                            
+                            #Set the current gait cycle check in dictionary
+                            #and append other info
+                            seqResultsDict['subID'].append(subList[ii])
+                            seqResultsDict['trialID'].append(trialList[tt])
+                            seqResultsDict['analysisVar'].append(analysisVar[vv])
+                            seqResultsDict['varType'].append('0D')
+                            seqResultsDict['stabilityThreshold'].append(stabilityLevels[ss])
+                            seqResultsDict['stabilityGC'].append(checkGC)
+                            
+                            #Break loop
+                            break
+                        
+                        else:
+                            
+                            #Move on to the next gait cycle value
+                            checkGC = checkGC + 1
+                        
+                    else:
+                        
+                        #Move on to the next gait cycle value
+                        checkGC = checkGC + 1
+                
+                #Do a quick check to see if the checkGC is the same as the maxGC
+                #If this is the case, then the data only reach stability by the
+                #last gait cycle --- effectively the same as the mean --- and 
+                #won't have had data added
+                if checkGC == maxGC:
+                    
+                    #Append a nan value for the current scenario
+                    seqResultsDict['subID'].append(subList[ii])
+                    seqResultsDict['trialID'].append(trialList[tt])
+                    seqResultsDict['analysisVar'].append(analysisVar[vv])
+                    seqResultsDict['varType'].append('0D')
+                    seqResultsDict['stabilityThreshold'].append(stabilityLevels[ss])
+                    seqResultsDict['stabilityGC'].append(np.nan)
+                    
+                #Repeat with 1D variable
+                
+                #Set start gait cycle value to start check at
+                checkGC = np.min(df_currSeq_1D['nGC'].unique())
+                
+                #Identify max gait cycle number
+                maxGC = np.max(df_currSeq_1D['nGC'].unique())
+                
+                #Use while loop to search through gait cycle numbers
+                while checkGC < maxGC:
+                    
+                    #Get value for current check
+                    currVal = df_currSeq_1D.loc[df_currSeq_1D['nGC'] == checkGC, 'seqVal'].values[0]
+                    
+                    #Check if current value is under threshold
+                    if np.abs(currVal) < stabilityLevels[ss]:
+                        
+                        #Check if the remaining values all remain under threshold
+                        
+                        #Get the remaining values
+                        remVals = np.abs(df_currSeq_1D.loc[df_currSeq_1D['nGC'] > checkGC, 'seqVal'].values)
+                        
+                        #Check if all values are under the threshold
+                        if (remVals < stabilityLevels[ss]).all():
+                            
+                            #Set the current gait cycle check in dictionary
+                            #and append other info
+                            seqResultsDict['subID'].append(subList[ii])
+                            seqResultsDict['trialID'].append(trialList[tt])
+                            seqResultsDict['analysisVar'].append(analysisVar[vv])
+                            seqResultsDict['varType'].append('1D')
+                            seqResultsDict['stabilityThreshold'].append(stabilityLevels[ss])
+                            seqResultsDict['stabilityGC'].append(checkGC)
+                            
+                            #Break loop
+                            break
+                        
+                        else:
+                            
+                            #Move on to the next gait cycle value
+                            checkGC = checkGC + 1
+                        
+                    else:
+                        
+                        #Move on to the next gait cycle value
+                        checkGC = checkGC + 1
+                
+                #Do a quick check to see if the checkGC is the same as the maxGC
+                #If this is the case, then the data only reach stability by the
+                #last gait cycle --- effectively the same as the mean --- and 
+                #won't have had data added
+                if checkGC == maxGC:
+                    
+                    #Append a nan value for the current scenario
+                    seqResultsDict['subID'].append(subList[ii])
+                    seqResultsDict['trialID'].append(trialList[tt])
+                    seqResultsDict['analysisVar'].append(analysisVar[vv])
+                    seqResultsDict['varType'].append('1D')
+                    seqResultsDict['stabilityThreshold'].append(stabilityLevels[ss])
+                    seqResultsDict['stabilityGC'].append(np.nan)
+                    
+                #Print confirmation
+                print('Sequential results extracted for '+subList[ii]+
+                  ' for '+analysisVar[vv]+' during '+trialList[tt]+
+                  ' at stability threshold of '+str(stabilityLevels[ss])+' SD.')
+                    
+            #Print confirmation
+            print('Sequential results extracted for '+subList[ii]+
+                  ' for '+analysisVar[vv]+' during '+trialList[tt])
+        
+        #Print confirmation
+        print('Sequential results extracted for '+analysisVar[vv]+
+              '. '+str(vv+1)+' of '+str(len(analysisVar))+
+              ' variables completed for '+trialList[tt])
+    
+    #Print confirmation
+    print('Sequential results extracted for '+trialList[tt]+
+          '. '+str(tt+1)+' of '+str(len(trialList))+' trial types completed.')
+
+#Convert to dataframe
+df_seqResults = pd.DataFrame.from_dict(seqResultsDict)
+
+
+# %% UP TO HERE
+
+# %%
+
+#Sample violin plot of sequential analysis for number of gait cycles
+fig, ax = plt.subplots(nrows = len(stabilityLevels), ncols = 1, figsize = (9,8))
+
+#Plot violin plot for first variable
+#Y-axis represents number of gait cycles, X-axis represents trial type
+#Both 0D and 1D variables are plotted
+
+
+#For a single variable
+
+# for ss in range(len(stabilityLevels)):
+
+#     sns.violinplot(data = df_seqResults.loc[(df_seqResults['analysisVar'] == analysisVar[0]) &
+#                                             (df_seqResults['stabilityThreshold'] == stabilityLevels[ss])],
+#                    x = 'trialID', y = 'stabilityGC', hue = 'varType',
+#                    split = True, inner = None,
+#                    palette = 'colorblind', linewidth = 0,
+#                    ax = ax[ss])
+
+#For a single trial type
+
+#### Probably better...
+
+for ss in range(len(stabilityLevels)):
+
+    sns.violinplot(data = df_seqResults.loc[(df_seqResults['trialID'] == trialList[0]) &
+                                            (df_seqResults['stabilityThreshold'] == stabilityLevels[ss])],
+                   x = 'analysisVar', y = 'stabilityGC', hue = 'varType',
+                   split = True, inner = None,
+                   palette = 'colorblind', linewidth = 0,
+                   ax = ax[ss])
+    
+    
+#### TODO: pretty-up figures...export dataframe to for markdown use...
+
+
+#### TODO: calculate and tabulate 95% CI's
+
+#Extract data sample
+
+calcValues = df_seqResults.loc[(df_seqResults['trialID'] == trialList[0]) &
+                               (df_seqResults['analysisVar'] == analysisVar[0]) &
+                               (df_seqResults['varType'] == '0D'),['stabilityGC']]['stabilityGC'].values
+
+Xbar = np.mean(calcValues)
+ci95_plus = Xbar + 1.96 * (np.std(calcValues) / np.sqrt(len(calcValues)))
+ci95_minus = Xbar - 1.96 * (np.std(calcValues) / np.sqrt(len(calcValues)))
+
+print('Mean and 95% CI: '+str(round(Xbar,2))+
+      ' ['+str(round(ci95_minus,2))+', '+str(round(ci95_plus,2))+']')
+
+
+
 
 
 #Sample box plot of data for knee angle
