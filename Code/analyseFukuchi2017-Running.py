@@ -517,6 +517,8 @@ maxExtractSingle = 30
 maxExtractDual = 15
 extractNo = np.linspace(minExtract,maxExtractSingle,
                         maxExtractSingle-minExtract+1)
+extractNoDual = np.linspace(minExtract,maxExtractDual,
+                            maxExtractDual-minExtract+1)
 
 #Set the number of sampling iterations to run
 # nSamples = 1000
@@ -1110,9 +1112,6 @@ sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
 #### consistency with the 1D variables...
 
 # %% RQ2: Varying cycle number comparison to 'ground truth' mean
-
-##### TODO
-    #0D peak variable comparison as well?
     
 # This analysis compares a sample of an individuals treadmill bout to their 
 # entire treadmill bout (i.e. 'ground truth'). Given we don't know exactly what
@@ -1144,7 +1143,10 @@ for tt in range(len(trialList)):
     df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
     
     #Loop through analysis variables
-    for vv in range(len(analysisVar)):
+    for vv in range(2,len(analysisVar)):
+        
+        #Calculate the 'ground truth' values based on all of the participants
+        #gait cycles
         
         #Set the 'ground truth' mean array
         groundTruth_0D = np.zeros((len(subList),1))
@@ -1255,8 +1257,8 @@ for tt in range(len(trialList)):
                         #sampled gait cycle sequence for 'footStrikes1'
                     
                         #Get start and end time
-                        startTime1 = rightFS[df_currIter['footStrikes1'][nn]]
-                        endTime1 = rightFS[df_currIter['footStrikes1'][nn+1]]
+                        startTime1 = rightFS[df_currIter['footStrikes'][nn]]
+                        endTime1 = rightFS[df_currIter['footStrikes'][nn+1]]
                         
                         #Create a boolean mask for in between event times
                         extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
@@ -1356,43 +1358,254 @@ for tt in range(len(trialList)):
 #Convert dictionary to a dataframe
 df_groundTruthComp = pd.DataFrame.from_dict(groundTruthDict)
 
-# %% UP TO HERE...
 
-# %% ...
+##### TODO: calculations...
 
 #Visualise null hypothesis rejection rate across gait cycles
 
 #### TODO: loop through trial type
 
 #Initialise figure
-fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (6,3.5))
+fig, ax = plt.subplots(nrows = 2, ncols = 1, figsize = (6,7))
 
 #Plot the expected false positive rate
-ax.axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
+ax[0].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
+ax[1].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
 
 #Loop through variables
-# for vv in range(len(analysisVar)):
-for vv in range(0,3):
+for vv in range(len(analysisVar)):
+# for vv in range(0,3):
 
     #Initialise arrays to store H0 reject rate vs. gait cycle number
     X = np.zeros((len(extractNo),1))
-    Y = np.zeros((len(extractNo),1))
+    Y_0D = np.zeros((len(extractNo),1))
+    Y_1D = np.zeros((len(extractNo),1))
     
     #Loop through extraction number to get the count and H0 rejection rate
-    for ee in range(len(extractNo)):
+    for ee in range(len(extractNoDual)):
         
         #Set extraction number in array
         X[ee,0] = extractNo[ee]
         
         #Sum the number of times H0 was rejected and add to array
-        Y[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
-                                             (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
-                                             (df_groundTruthComp['extractNo'] == extractNo[ee]) &
-                                             (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
+        #Both 0D and 1D variables here
+        Y_0D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
+                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                                (df_groundTruthComp['varType'] == '0D') &
+                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
+                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
+        Y_1D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
+                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                                (df_groundTruthComp['varType'] == '1D') &
+                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
+                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
     
     #Plot data
-    ax.plot(X, Y, color = analysisCol[vv], marker = analysisSym[vv],
-            label = analysisLabels[vv])
+    ax[0].plot(X, Y_0D, color = analysisCol[vv], marker = analysisSym[vv],
+               label = analysisLabels[vv])
+    ax[1].plot(X, Y_1D, color = analysisCol[vv], marker = analysisSym[vv],
+               label = analysisLabels[vv])
+
+# %% RQ3: Comparing samples from different sections of trial
+
+##### TODO: this is repetitive of the above sample cycling, so perhaps encase
+##### both within same loop to speed up process...
+
+#Set a dictionary to store findings of each iteration in
+##### TODO
+    #Include some sort of standardised error/effect of difference???
+    #Should do this for all - SMD for 0D variables; peak SMD for 1D (i.e. biggest difference)???
+compDict = {'extractNo': [], 'trialID': [], 'varType': [],
+            'rejectH0': [], 'pVal': [],
+            'analysisVar': [],
+            'Y1': [], 'Y2': [],
+            'Y1_m': [], 'Y2_m': [], 'meanAbsError': []}
+
+#Loop through the different trial types
+for tt in range(len(trialList)):
+    
+    #Extract the dataframe for the current trial ID
+    df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
+    
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
+
+        #Loop through the extraction numbers
+        for ee in range(len(extractNoDual)):
+            
+            #Set current extract number
+            currNo = int(extractNoDual[ee])
+            
+            #Extract the dataframe for the current extraction number
+            df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
+            
+            #Loop through the sampling number
+            for ss in range(nSamples):
+                
+                #Set array to store each subjects two datasets for this sample iteration
+                Y1_1D = np.zeros((len(subList),101))
+                Y2_1D = np.zeros((len(subList),101))
+                Y1_0D = np.zeros((len(subList),1))
+                Y2_0D = np.zeros((len(subList),1))
+                
+                #Loop through subjects and get their data for the current sample
+                # for ii in range(len(subList)):
+                for ii in range(len(subList)):
+                    
+                    #Extract the dataframe that matches the current subject
+                    #As part of this also extract the row that matches the current
+                    #sampling iteration index
+                    df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
+                    df_currIter = df_currSub.iloc[ss]
+                    
+                    #Set a space to store normalised data into for calculating
+                    #current subjects mean
+                    normData1 = np.zeros((currNo,101))
+                    normData2 = np.zeros((currNo,101))
+                    
+                    #Extract the current participants kinematic data relevant to
+                    #current trial tupe. Get the index corresponding to this in the
+                    #data dictionary.
+                    subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+                    trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+                    currInd = list(set(subInd) & set(trialInd))[0]
+                    
+                    #Get the right foot strike indices
+                    rightFS = dataDict['rightFS'][currInd]
+                    
+                    #Get the IK dataframe
+                    df_ik = dataDict['kinematics'][currInd]
+                    
+                    #Loop through extraction number and normalise kinematics
+                    for nn in range(currNo):
+                        
+                        #Extract data between current heel strikes
+                    
+                        #Get start and end time
+                        startTime1 = rightFS[df_currIter['footStrikes1'][nn]]
+                        endTime1 = rightFS[df_currIter['footStrikes1'][nn+1]]
+                        startTime2 = rightFS[df_currIter['footStrikes2'][nn]]
+                        endTime2 = rightFS[df_currIter['footStrikes2'][nn+1]]
+                        
+                        #Create a boolean mask for in between event times
+                        extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
+                        extractTime2 = ((df_ik['time'] > startTime2) & (df_ik['time'] < endTime2)).values
+                        
+                        #Extract the time values
+                        timeVals1 = df_ik['time'][extractTime1].values
+                        timeVals2 = df_ik['time'][extractTime2].values
+                        
+                        #Extract the data
+                        dataVals1 = df_ik[analysisVar[vv]][extractTime1].values
+                        dataVals2 = df_ik[analysisVar[vv]][extractTime2].values
+                        
+                        #Normalise data to 0-100%
+                        newTime1 = np.linspace(timeVals1[0],timeVals1[-1],101)
+                        newTime2 = np.linspace(timeVals2[0],timeVals2[-1],101)
+                        interpData1 = np.interp(newTime1,timeVals1,dataVals1)                    
+                        interpData2 = np.interp(newTime2,timeVals2,dataVals2)
+                        
+                        #Store interpolated data in array
+                        normData1[nn,:] = interpData1
+                        normData2[nn,:] = interpData2
+                
+                    #Calculate the mean of the current subjects normalised data
+                    #Store in the current sample iterations array for SPM1D analysis
+                    #Also store the peak value for the 0D variable
+                    Y1_1D[ii,:] = np.mean(normData1, axis = 0)
+                    Y1_0D[ii,0] = np.mean(np.max(normData1, axis = 1), axis = 0)
+                    Y2_1D[ii,:] = np.mean(normData2, axis = 0)
+                    Y2_0D[ii,0] = np.mean(np.max(normData2, axis = 1), axis = 0)
+                
+                #Flatten 0D array
+                Y1_0D = Y1_0D.flatten()
+                Y2_0D = Y2_0D.flatten()
+                
+                #Conduct the SPM1D t-test on this sample
+                t = spm1d.stats.ttest_paired(Y1_1D, Y2_1D)
+                ti = t.inference(alpha, two_tailed = True, interp = True)
+                
+                # #Visuliase
+                # #Set-up plot
+                # plt.figure(figsize=(8, 3.5))
+                # #Plot mean and SD of two samples
+                # ax1 = plt.axes((0.1, 0.15, 0.35, 0.8))
+                # spm1d.plot.plot_mean_sd(Y1_1D, linecolor = 'b', facecolor = 'b')
+                # spm1d.plot.plot_mean_sd(Y1_1D, linecolor = 'r', facecolor='r')
+                # ax1.axhline(y = 0, color = 'k', linestyle=':')
+                # ax1.set_xlabel('0-100% Gait Cycle')
+                # ax1.set_ylabel(analysisVar[vv])
+                # #Plot SPM results
+                # ax2 = plt.axes((0.55,0.15,0.35,0.8))
+                # ti.plot()
+                # ti.plot_threshold_label(fontsize = 8)
+                # ti.plot_p_values(size = 10, offsets = [(0,0.3)])
+                # ax2.set_xlabel('0-100% Gait Cycle')
+                # #Show plot
+                # plt.show()
+                
+                #Calculate mean absolute error of current two curves
+                Y1_1D_m = np.mean(Y1_1D, axis = 0)
+                Y2_1D_m = np.mean(Y2_1D, axis = 0)
+                mae_1D = np.mean(abs(Y1_1D_m - Y2_1D_m))
+                
+                #Conduct paired t-test on peak values
+                t0,p0 = stats.ttest_rel(Y1_0D, Y2_0D)
+                if p0 < 0.05:
+                    h0reject_0D = True
+                else:
+                    h0reject_0D = False
+                    
+                #Calculate means and absolute error for 0D variable
+                Y1_0D_m = np.mean(Y1_0D, axis = 0)
+                Y2_0D_m = np.mean(Y2_0D, axis = 0)
+                mae_0D = np.mean(abs(Y1_0D_m - Y2_0D_m))
+                
+                #Collate results from this sampling iteration into dictionary
+                #1D
+                compDict['extractNo'].append(currNo)
+                compDict['trialID'].append(trialList[tt])
+                compDict['varType'].append('1D')
+                compDict['rejectH0'].append(ti.h0reject)
+                compDict['pVal'].append(ti.p) #note there are no p-values for non-statistically significant results
+                compDict['analysisVar'].append(analysisVar[vv])
+                compDict['Y1'].append(Y1_1D)
+                compDict['Y2'].append(Y2_1D)
+                compDict['Y1_m'].append(Y1_1D_m)
+                compDict['Y2_m'].append(Y2_1D_m)
+                compDict['meanAbsError'].append(mae_1D)
+                #0D
+                compDict['extractNo'].append(currNo)
+                compDict['trialID'].append(trialList[tt])
+                compDict['varType'].append('0D')
+                compDict['rejectH0'].append(h0reject_0D)
+                compDict['pVal'].append(p0)
+                compDict['analysisVar'].append(analysisVar[vv])
+                compDict['Y1'].append(Y1_0D)
+                compDict['Y2'].append(Y2_0D)
+                compDict['Y1_m'].append(Y1_0D_m)
+                compDict['Y2_m'].append(Y2_0D_m)
+                compDict['meanAbsError'].append(mae_0D)
+                
+                #Print confirmation
+                print('Completed '+str(ss+1)+' of '+str(nSamples)+' for '+
+                      str(currNo)+' gait cycles of '+analysisVar[vv]+' from '+
+                      trialList[tt])
+                
+#Convert to dataframe
+df_compSamples = pd.DataFrame.from_dict(compDict)
+
+# %% UP TO HERE...
+
+#Test false positive comparison rate between samples
+rejectH0 = df_compSamples.loc[(df_compSamples['extractNo'] == extractNoDual[0]) &
+                              (df_compSamples['trialID'] == trialList[0]) &
+                              (df_compSamples['varType'] == '0D'),
+                              ['rejectH0']]['rejectH0'].to_numpy()
+
+np.sum(rejectH0) / len(rejectH0)
+
+
 
 # %% RQ4: Cycle sampling and number effect on refuting null hypothesis
 
@@ -1607,162 +1820,5 @@ for ee in range(len(extractNo)):
 #### analysis of sorts to discover our true potential discovery rate?????
 
 
-# %% Trial number comparison...CHECK!!!
 
-#Set a dictionary to store findings of each iteration in
-##### TODO
-    #Include some sort of standardised error/effect of difference???
-resultsDict = {'extractNo': [], 'trialID': [],
-               'rejectH0': [], 'pVal': [],
-               'analysisVar': [],
-               'Y1': [], 'Y2': [],
-               'Y1m': [], 'Y2m': [], 'meanAbsError': []}
-    
-##### TODO
-    #Selecting variables --- start by testing knee flexion
-
-#Set analysis variable
-analysisVar = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r',
-               'knee_angle_r', 'ankle_angle_r']
-    
-#Set the alpha level for the t-tests
-alpha = 0.05
-
-#Loop through the different trial types
-for tt in range(len(trialList)):
-    
-    #Extract the dataframe for the current trial ID
-    df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
-    
-    #Loop through analysis variables
-    for vv in range(len(analysisVar)):
-
-        #Loop through the extraction numbers
-        for ee in range(len(extractNo)):
-            
-            #Set current extract number
-            currNo = int(extractNo[ee])
-            
-            #Extract the dataframe for the current extraction number
-            df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
-            
-            #Loop through the sampling number
-            for ss in range(nSamples):
-                
-                #Set array to store each subjects two datasets for this sample iteration
-                # Y1 = np.empty((len(subList),101))
-                # Y2 = np.empty((len(subList),101))
-                Y1 = np.empty((20,101))
-                Y2 = np.empty((20,101))
-                
-                #Loop through subjects and get their data for the current sample
-                # for ii in range(len(subList)):
-                for ii in range(0,20):
-                    
-                    #Extract the dataframe that matches the current subject
-                    #As part of this also extract the row that matches the current
-                    #sampling iteration index
-                    df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
-                    df_currIter = df_currSub.iloc[ss]
-                    
-                    #Set a space to store normalised data into for calculating
-                    #current subjects mean
-                    normData1 = np.empty((currNo,101))
-                    normData2 = np.empty((currNo,101))
-                    
-                    #Extract the current participants kinematic data relevant to
-                    #current trial tupe. Get the index corresponding to this in the
-                    #data dictionary.
-                    subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
-                    trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
-                    currInd = list(set(subInd) & set(trialInd))[0]
-                    
-                    #Get the right foot strike indices
-                    rightFS = dataDict['rightFS'][currInd]
-                    
-                    #Get the IK dataframe
-                    df_ik = dataDict['kinematics'][currInd]
-                    
-                    #Loop through extraction number and normalise kinematics
-                    for nn in range(currNo):
-                        
-                        #Extract data between current heel strikes
-                    
-                        #Get start and end time
-                        startTime1 = rightFS[df_currIter['footStrikes1'][nn]]
-                        endTime1 = rightFS[df_currIter['footStrikes1'][nn+1]]
-                        startTime2 = rightFS[df_currIter['footStrikes2'][nn]]
-                        endTime2 = rightFS[df_currIter['footStrikes2'][nn+1]]
-                        
-                        #Create a boolean mask for in between event times
-                        extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
-                        extractTime2 = ((df_ik['time'] > startTime2) & (df_ik['time'] < endTime2)).values
-                        
-                        #Extract the time values
-                        timeVals1 = df_ik['time'][extractTime1].values
-                        timeVals2 = df_ik['time'][extractTime2].values
-                        
-                        #Extract the data
-                        dataVals1 = df_ik[analysisVar[vv]][extractTime1].values
-                        dataVals2 = df_ik[analysisVar[vv]][extractTime2].values
-                        
-                        #Normalise data to 0-100%
-                        newTime1 = np.linspace(timeVals1[0],timeVals1[-1],101)
-                        newTime2 = np.linspace(timeVals2[0],timeVals2[-1],101)
-                        interpData1 = np.interp(newTime1,timeVals1,dataVals1)                    
-                        interpData2 = np.interp(newTime2,timeVals2,dataVals2)
-                        
-                        #Store interpolated data in array
-                        normData1[nn,:] = interpData1
-                        normData2[nn,:] = interpData2
-                
-                    #Calculate the mean of the current subjects normalised data
-                    #Store in the current sample iterations array for SPM1D analysis
-                    Y1[ii,:] = np.mean(normData1, axis = 0)
-                    Y2[ii,:] = np.mean(normData2, axis = 0)
-                
-                #Conduct the SPM1D t-test on this sample
-                t = spm1d.stats.ttest_paired(Y1, Y2)
-                ti = t.inference(alpha, two_tailed = True, interp = True)
-                
-                # #Visuliase
-                # #Set-up plot
-                # plt.figure(figsize=(8, 3.5))
-                # #Plot mean and SD of two samples
-                # ax1 = plt.axes((0.1, 0.15, 0.35, 0.8))
-                # spm1d.plot.plot_mean_sd(Y1, linecolor = 'b', facecolor = 'b')
-                # spm1d.plot.plot_mean_sd(Y1, linecolor = 'r', facecolor='r')
-                # ax1.axhline(y = 0, color = 'k', linestyle=':')
-                # ax1.set_xlabel('0-100% Gait Cycle')
-                # ax1.set_ylabel(analysisVar[vv])
-                # #Plot SPM results
-                # ax2 = plt.axes((0.55,0.15,0.35,0.8))
-                # ti.plot()
-                # ti.plot_threshold_label(fontsize = 8)
-                # ti.plot_p_values(size = 10, offsets = [(0,0.3)])
-                # ax2.set_xlabel('0-100% Gait Cycle')
-                # #Show plot
-                # plt.show()
-                
-                #Calculate mean absolute error of current two curves
-                Y1m = np.mean(Y1, axis = 0)
-                Y2m = np.mean(Y2, axis = 0)
-                mae = np.mean(abs(Y1m - Y2m))            
-                
-                #Collate results from this sampling iteration into dictionary
-                resultsDict['extractNo'].append(currNo)
-                resultsDict['trialID'].append(trialList[tt])
-                resultsDict['rejectH0'].append(ti.h0reject)
-                resultsDict['pVal'].append(ti.p) #note there are no p-values for non-statistically significant results
-                resultsDict['analysisVar'].append(analysisVar[vv])
-                resultsDict['Y1'].append(Y1)
-                resultsDict['Y2'].append(Y2)
-                resultsDict['Y1m'].append(Y1m)
-                resultsDict['Y2m'].append(Y2m)
-                resultsDict['meanAbsError'].append(mae)
-                
-                #Print confirmation
-                print('Completed '+str(ss+1)+' of '+str(nSamples)+' for '+
-                      str(currNo)+' gait cycles of '+analysisVar[vv]+' from '+
-                      trialList[tt])
                 
