@@ -31,6 +31,11 @@ import seaborn as sns
 import spm1d
 from statsmodels.stats.anova import AnovaRM
 from scipy import stats
+# import pickle
+import _pickle as cPickle
+import bz2
+import tqdm
+import time
 
 # %% Define functions
 
@@ -389,6 +394,39 @@ def plotKinematics(subID, trialID, df_ik, leftFS, rightFS):
                                                        linewidth = 0.5)
         #Set x-axes limits
         ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([0,100])
+        
+#Save dictionary with pickle and bz2
+def savePickleDict(dictObj, fullFile):
+    with bz2.BZ2File(fullFile, 'w') as fileToWrite: 
+        cPickle.dump(dictObj, fileToWrite)
+        
+#Load dictionary with pickle and bz2
+def loadPickleDict(fullFile):
+    fileToRead = bz2.BZ2File(fullFile, 'rb')
+    fileToRead = cPickle.load(fileToRead)
+    return fileToRead
+
+#Max Cohen's d for 1D comparisons
+def calcCohensD_1D(d1, d2):
+    #Calculate pooled SD of two datasets
+    pooledSD = np.sqrt((np.std(d1, axis = 0)**2 + 
+                        np.std(d2, axis = 0)**2) / 2)
+    #Calculate Cohen's D
+    cohensD = (np.mean(d1, axis = 0) - 
+               np.mean(d2, axis = 0)) / pooledSD
+    #Calculate maximum Cohen's D and return
+    maxEffect = np.max(cohensD)
+    return maxEffect
+
+#Cohen's d for 0D comparisons
+def calcCohensD_0D(d1, d2):
+    #Calculate pooled SD of two datasets
+    pooledSD = np.sqrt((np.std(d1)**2 + 
+                        np.std(d2)**2) / 2)
+    #Calculate and return Cohen's D
+    cohensD = (np.mean(d1) - 
+               np.mean(d2)) / pooledSD
+    return cohensD
 
 # %% Set-up
 
@@ -396,7 +434,11 @@ def plotKinematics(subID, trialID, df_ik, leftFS, rightFS):
 mainDir = os.getcwd()
 
 #Create path to analysis directories
-os.chdir('..\\Analysis\\SequentialAnalysis')
+#Storage directory
+os.chdir('..\\Analysis\\DataStorage')
+storeAnalysisDir = os.getcwd()
+#Sequential analysis directory
+os.chdir('..\\SequentialAnalysis')
 seqAnalysisDir = os.getcwd()
 
 #Create path to data storage folder
@@ -416,81 +458,8 @@ for item in dList:
 #Get participant info
 df_subInfo = pd.read_csv('ParticipantInfo\\RBDSinfo.csv')
 
-# %% Collate processed data
-
-#Set trial names to extract
-#Each participant at least has the 25, 35 and 45 runs (some have 30)
-trialList = ['runT25','runT35','runT45']
-
-#Set dictionary to store data in
-dataDict = {'subID': [], 'trialID': [], 'kinematics': [],
-            'rightFS': [], 'leftFS': [], 
-            'rGC_n': [], 'lGC_n': []}
-
-#Loop through subjects
-for ii in range(len(subList)):
-# for ii in range(0,20):
-    
-    #Navigate to subject directory
-    os.chdir(subList[ii])
-    
-    #Loop through trials
-    for tt in range(len(trialList)):
-        
-        #Append subject and trial ID to data dictionary
-        dataDict['subID'].append(subList[ii])
-        dataDict['trialID'].append(trialList[tt])
-        
-        #Load in current kinematic data
-        ikSto = osim.Storage(subList[ii]+trialList[tt]+'_ik.mot')
-        
-        #Smooth kinematic data with 4th order 10Hz FIR filter
-        ikSto.lowpassFIR(4, 10)
-        
-        #Convert kinematics storage to dataframe
-        df_ik = stoToDF(ikSto)
-        
-        #Append kinematics to data dictionary
-        dataDict['kinematics'].append(df_ik)
-        
-        #Identify foot strikes from c3d data
-        leftFS, rightFS = footStrikeID(subList[ii]+trialList[tt]+'.c3d')
-        
-        #Append to overall data dictionary
-        dataDict['leftFS'].append(leftFS)
-        dataDict['rightFS'].append(rightFS)
-                
-        #Determine number of gait cycles for each foot and append to dictionary
-        dataDict['lGC_n'].append(len(leftFS) - 1)
-        dataDict['rGC_n'].append(len(rightFS) - 1)
-        
-        # #Plot data for later error checking
-        # plotKinematics(subList[ii], trialList[tt], df_ik, leftFS, rightFS)
-        
-        # #Save figure
-        # plt.savefig(subList[ii]+'_'+trialList[tt]+'_kinematics.png')
-        # plt.close()
-        
-    #Print confirmation
-    print('Data extracted for '+subList[ii])
-        
-    #Return to data directory
-    os.chdir(dataDir)
-    
-# %% Determine minimum gait cycles
-
-#This analysis will focus on right limb data, so we'll focus on these gait cycle n's
-minGC = min(dataDict['rGC_n'])
-
-### NOTE
-    #The above calculation determines 34 to be the minimum number of gait cycles
-    #across all all participants
-    #Considering this we can probably safely go up to 15 and have minimum overlap
-    #We can increase this to minimum when not comparing cycles within a participant
-    
-# %% Extract data and run tests
-
-#Settings for subsequent tests
+#Set the alpha level for the statistical tests
+alpha = 0.05
 
 #Set analysis variable
 analysisVar = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r',
@@ -500,16 +469,185 @@ analysisVar = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r',
 analysisLabels = ['Hip Flexion', 'Hip Adduction', 'Hip Rotation',
                   'Knee Flexion', 'Ankle Dorsi/Plantarflexion']
 
-#Set colour palette for analsis variables
+#Set colour palette for analysis variables
 analysisCol = sns.color_palette('colorblind', len(analysisVar))
 
 #Set symbols for analysis variables
 analysisSym = ['s', 'o', 'd', '^', 'v']
 
-#Set the alpha level for the t-tests
-alpha = 0.05
+# %% Collate processed data
 
-# %% Determine gait cycle extraction points
+#Set trial names to extract
+#Each participant at least has the 25, 35 and 45 runs (some have 30)
+trialList = ['runT25','runT35','runT45']
+
+#Setting for whether to import raw data or load the pickle file
+#CHANGE THIS TO FALSE IF THE PICKLE (.PBZ2) FILES DON'T EXIST
+loadRawData = False
+
+#Check for loading data
+if loadRawData:
+    
+    #Set dictionary to store data in
+    dataDict = {'subID': [], 'trialID': [], 'kinematics': [],
+                'rightFS': [], 'leftFS': [], 
+                'rGC_n': [], 'lGC_n': []}
+
+    #Loop through subjects
+    for ii in range(len(subList)):
+    
+        #Navigate to subject directory
+        os.chdir(subList[ii])
+        
+        #Loop through trials
+        for tt in range(len(trialList)):
+            
+            #Append subject and trial ID to data dictionary
+            dataDict['subID'].append(subList[ii])
+            dataDict['trialID'].append(trialList[tt])
+            
+            #Load in current kinematic data
+            ikSto = osim.Storage(subList[ii]+trialList[tt]+'_ik.mot')
+            
+            #Smooth kinematic data with 4th order 10Hz FIR filter
+            ikSto.lowpassFIR(4, 10)
+            
+            #Convert kinematics storage to dataframe
+            df_ik = stoToDF(ikSto)
+            
+            #Append kinematics to data dictionary
+            dataDict['kinematics'].append(df_ik)
+            
+            #Identify foot strikes from c3d data
+            leftFS, rightFS = footStrikeID(subList[ii]+trialList[tt]+'.c3d')
+            
+            #Append to overall data dictionary
+            dataDict['leftFS'].append(leftFS)
+            dataDict['rightFS'].append(rightFS)
+                    
+            #Determine number of gait cycles for each foot and append to dictionary
+            dataDict['lGC_n'].append(len(leftFS) - 1)
+            dataDict['rGC_n'].append(len(rightFS) - 1)
+            
+            # #Plot data for later error checking
+            # plotKinematics(subList[ii], trialList[tt], df_ik, leftFS, rightFS)
+            
+            # #Save figure
+            # plt.savefig(subList[ii]+'_'+trialList[tt]+'_kinematics.png')
+            # plt.close()
+            
+        #Print confirmation
+        print('Data extracted for '+subList[ii])
+            
+        #Return to data directory
+        os.chdir(dataDir)
+        
+    #Stash the compiled data for speedier use later
+    savePickleDict(dataDict, storeAnalysisDir+'\\Fukuchi2017-Running-dataDict.pbz2')
+    
+else:
+    
+    #Load the already imported data dictionary
+    dataDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-dataDict.pbz2')
+    
+    #Print confirmation
+    print('Pre-loaded data imported for all participants.')
+    
+#Determine minimum gait cycles
+#This analysis will focus on right limb data, so we'll focus on these gait cycle n's
+minGC = min(dataDict['rGC_n'])
+
+### NOTE
+    #The above calculation finds 34 to be the minimum number of gait cycles across all all participants
+    #Considering this we can probably safely go up to 15 and have minimum overlap
+    #We can increase this to minimum when not comparing cycles within a participant
+    
+# %% Extract data and run tests
+
+#Extract each participants gait cycles into time normalised arrays
+
+#Setting for whether to normalise data or load the pickle file
+#CHANGE THIS TO FALSE IF THE PICKLE (.PBZ2) FILES DON'T EXIST
+normaliseData = False
+
+#Check for normalising data
+if normaliseData:
+    
+    #Set dictionary to store data in
+    normDataDict = {key: {} for key in trialList}
+    for tt in range(len(trialList)):
+        normDataDict[trialList[tt]] = {key: [] for key in analysisVar}
+        
+    #Loop through subjects
+    for ii in range(len(subList)):
+        
+        #Loop through analysis variables
+        for vv in range(len(analysisVar)):
+        
+            #Loop through trial types
+            for tt in range(len(trialList)):
+            
+                #Extract the current participants kinematic data relevant to
+                #current trial tupe. Get the index corresponding to this in the
+                #data dictionary.
+                subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+                trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+                currInd = list(set(subInd) & set(trialInd))[0]
+                
+                #Get the right foot strike indices
+                rightFS = dataDict['rightFS'][currInd]
+                
+                #Set a space to store normalised data into for calculating
+                #current subjects mean
+                normData = np.zeros((len(rightFS)-1,101))
+                
+                #Get the IK dataframe
+                df_ik = dataDict['kinematics'][currInd]
+                
+                #Loop through number of gait cycles and normalise kinematics
+                for nn in range(len(rightFS)-1):
+                    
+                    #Extract data between current heel strikes
+                
+                    #Get start and end time
+                    startTime = rightFS[nn]
+                    endTime = rightFS[nn+1]
+                    
+                    #Create a boolean mask for in between event times
+                    extractTime = ((df_ik['time'] > startTime) & (df_ik['time'] < endTime)).values
+                    
+                    #Extract the time values
+                    timeVals = df_ik['time'][extractTime].values
+                    
+                    #Extract the data
+                    dataVals = df_ik[analysisVar[vv]][extractTime].values
+                    
+                    #Normalise data to 0-100%
+                    newTime = np.linspace(timeVals[0],timeVals[-1],101)
+                    interpData = np.interp(newTime,timeVals,dataVals)                    
+                    
+                    #Store interpolated data in array
+                    normData[nn,:] = interpData
+                    
+                #Append normalised data into appropriate dictionary key
+                normDataDict[trialList[tt]][analysisVar[vv]].append(normData)
+                
+                #Print confirmation
+                print(analysisVar[vv]+' data normalised and extracted for '+subList[ii]+
+                      ' for '+trialList[tt]+'.')
+            
+    #Stash the compiled normalised data for speedier use later
+    savePickleDict(normDataDict, storeAnalysisDir+'\\Fukuchi2017-Running-normDataDict.pbz2')
+    
+else:
+    
+    #Load the pre-normalised data
+    normDataDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-normDataDict.pbz2')
+    
+    #Print confirmation
+    print('Pre-loaded normalised data imported for all participants.')
+
+# %% Determine gait cycle sample points
 
 #Set the list of gait cycles to extract
 minExtract = 5
@@ -524,114 +662,141 @@ extractNoDual = np.linspace(minExtract,maxExtractDual,
 # nSamples = 1000
 nSamples = 100      ### REDUCE DURING CODE TESTING
 
-#Set dictionary to store gait cycle points in
-sampleDict = {'subID': [], 'trialID': [], 'extractNo': [],
-              'footStrikes': [], 'footStrikes1': [], 'footStrikes2': []}
+#Setting for whether to sample gait cycles or load the pickle file
+#CHANGE THIS TO FALSE IF THE PICKLE (.PBZ2) FILES DON'T EXIST
+sampleGaitCycles = True #False
 
-#Loop through subjects
-for ii in range(len(subList)):
-# for ii in range(0,20):
+#Check for normalising data
+if sampleGaitCycles:
+
+    #Set dictionary to store gait cycle points in
+    sampleDict = {'subID': [], 'trialID': [], 'extractNo': [],
+                  'footStrikes': [], 'footStrikes1': [], 'footStrikes2': []}
     
-    #Loop through trial list
-    for tt in range(len(trialList)):
+    #Loop through subjects
+    for ii in range(len(subList)):
         
-        #Get the index for the current subject/trial combo
-        subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
-        trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
-        currInd = list(set(subInd) & set(trialInd))[0]
-    
-        #Get the number of gait cycles for this participant
-        #Note that this is for the right limb this is what we'll analyse
-        nGC = dataDict['rGC_n'][currInd]
+        #Loop through trial list
+        for tt in range(len(trialList)):
+            
+            #Get the index for the current subject/trial combo
+            subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+            trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+            currInd = list(set(subInd) & set(trialInd))[0]
         
-        #Loop through extraction numbers
-        for ee in range(len(extractNo)):
+            #Get the number of gait cycles for this participant
+            #Note that this is for the right limb this is what we'll analyse
+            nGC = dataDict['rGC_n'][currInd]
             
-            #Determine the 'go zone' for random selection of the singular set of
-            #foot strikes
-            gcStarts = np.linspace(0,nGC,nGC+1)
-            #Remove the final X values relative to current extraction number, as
-            #these won't leave enough to grab
-            goZoneSingle = gcStarts[0:int(-extractNo[ee])]
-            
-            #Check if this extraction number is within the boundaries for the 
-            #dual comparison
-            if extractNo[ee] <= maxExtractDual:
-            
-                #Determine the 'go zones' for random selection of the first set
-                #Start by creating each individual cycle in a list
+            #Loop through extraction numbers
+            for ee in range(len(extractNo)):
+                
+                #Determine the 'go zone' for random selection of the singular set of
+                #foot strikes
                 gcStarts = np.linspace(0,nGC,nGC+1)
                 #Remove the final X values relative to current extraction number, as
                 #these won't leave enough to grab
-                gcStarts = gcStarts[0:int(-extractNo[ee])]
-                #Loop through the start numbers and check if using it there will be
-                #a valid number before or after it
-                goZoneDual = list()
-                for gg in range(len(gcStarts)):
-                    #Check whether there will be valid values after
-                    enoughAfter = gcStarts[-1] - (gcStarts[gg] + extractNo[ee]) > 0
-                    #Check whether there would be valid values before
-                    enoughBefore = gcStarts[gg] - extractNo[ee] > 0
-                    #If one of these is True then the value can be added to the 'go zone'
-                    if enoughAfter or enoughBefore:
-                        goZoneDual.append(gcStarts[gg])
-            
-            #Set seed here for sampling consistency
-            random.seed(12345)
-            
-            #Loop through sampling number
-            for ss in range(nSamples):
+                goZoneSingle = gcStarts[0:int(-extractNo[ee])]
                 
-                #Append subject and trial ID names
-                sampleDict['subID'].append(subList[ii])
-                sampleDict['trialID'].append(trialList[tt])
-                
-                #Append extract number details
-                sampleDict['extractNo'].append(int(extractNo[ee]))
-                
-                #Select a random number from the single 'go zone'
-                singlePick = random.choice(goZoneSingle)
-                
-                #Set strikes for current sample in directory
-                sampleDict['footStrikes'].append(list(map(round,list(np.linspace(singlePick,singlePick+int(extractNo[ee]),int(extractNo[ee]+1))))))
-                
-                #Check if dual selection is necessary
+                #Check if this extraction number is within the boundaries for the 
+                #dual comparison
                 if extractNo[ee] <= maxExtractDual:
                 
-                    #Select a random number from the list to start from
-                    dualPick1 = random.choice(goZoneDual)
-                    
-                    #Set a list to make second selection from
-                    select2 = list()
-                    
-                    #At this point split into two lists so length checks are easier
-                    #Can't use preceding starting points if they are within the
-                    #extraction number of the starting point
-                    goZone1 = [x for x in goZoneDual if x < dualPick1-extractNo[ee]+1]
-                    #Can't use values that will be encompassed within the gait cycles
-                    #extracted from the first starting point
-                    goZone2 = [x for x in goZoneDual if x > dualPick1+extractNo[ee]-1]
-                    #Concatenate the lists for to select from
-                    select2 = goZone1 + goZone2
-    
-                    #Select a random number from the second list to start from
-                    dualPick2 = random.choice(select2)
+                    #Determine the 'go zones' for random selection of the first set
+                    #Start by creating each individual cycle in a list
+                    gcStarts = np.linspace(0,nGC,nGC+1)
+                    #Remove the final X values relative to current extraction number, as
+                    #these won't leave enough to grab
+                    gcStarts = gcStarts[0:int(-extractNo[ee])]
+                    #Loop through the start numbers and check if using it there will be
+                    #a valid number before or after it
+                    goZoneDual = list()
+                    for gg in range(len(gcStarts)):
+                        #Check whether there will be valid values after
+                        enoughAfter = gcStarts[-1] - (gcStarts[gg] + extractNo[ee]) > 0
+                        #Check whether there would be valid values before
+                        enoughBefore = gcStarts[gg] - extractNo[ee] > 0
+                        #If one of these is True then the value can be added to the 'go zone'
+                        if enoughAfter or enoughBefore:
+                            goZoneDual.append(gcStarts[gg])
                 
-                    #Set strikes for current sample in dictionary
-                    sampleDict['footStrikes1'].append(list(map(round,list(np.linspace(dualPick1,dualPick1+int(extractNo[ee]),int(extractNo[ee]+1))))))
-                    sampleDict['footStrikes2'].append(list(map(round,list(np.linspace(dualPick2,dualPick2+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                #Set seed here for sampling consistency
+                random.seed(12345)
                 
-                #Otherwise just set nan's
-                else:
-                    sampleDict['footStrikes1'].append(np.nan)
-                    sampleDict['footStrikes2'].append(np.nan)
+                #Loop through sampling number
+                for ss in range(nSamples):
+                    
+                    #Append subject and trial ID names
+                    sampleDict['subID'].append(subList[ii])
+                    sampleDict['trialID'].append(trialList[tt])
+                    
+                    #Append extract number details
+                    sampleDict['extractNo'].append(int(extractNo[ee]))
+                    
+                    #Select a random number from the single 'go zone'
+                    singlePick = random.choice(goZoneSingle)
+                    
+                    #Set strikes for current sample in directory
+                    sampleDict['footStrikes'].append(list(map(round,list(np.linspace(singlePick,singlePick+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                    
+                    #Check if dual selection is necessary
+                    if extractNo[ee] <= maxExtractDual:
+                    
+                        #Select a random number from the list to start from
+                        dualPick1 = random.choice(goZoneDual)
+                        
+                        #Set a list to make second selection from
+                        select2 = list()
+                        
+                        #At this point split into two lists so length checks are easier
+                        #Can't use preceding starting points if they are within the
+                        #extraction number of the starting point
+                        goZone1 = [x for x in goZoneDual if x < dualPick1-extractNo[ee]+1]
+                        #Can't use values that will be encompassed within the gait cycles
+                        #extracted from the first starting point
+                        goZone2 = [x for x in goZoneDual if x > dualPick1+extractNo[ee]-1]
+                        #Concatenate the lists for to select from
+                        select2 = goZone1 + goZone2
+        
+                        #Select a random number from the second list to start from
+                        dualPick2 = random.choice(select2)
+                    
+                        #Set strikes for current sample in dictionary
+                        sampleDict['footStrikes1'].append(list(map(round,list(np.linspace(dualPick1,dualPick1+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                        sampleDict['footStrikes2'].append(list(map(round,list(np.linspace(dualPick2,dualPick2+int(extractNo[ee]),int(extractNo[ee]+1))))))
+                    
+                    #Otherwise just set nan's
+                    else:
+                        sampleDict['footStrikes1'].append(np.nan)
+                        sampleDict['footStrikes2'].append(np.nan)
+        
+        #Print confirmation for subject
+        print('Cycle sample numbers extracted for '+subList[ii])
     
-    #Print confirmation for subject
-    print('Cycle sample numbers extracted for '+subList[ii])
+    #Stash the compiled sampling vals for speedier use later
+    savePickleDict(sampleDict, storeAnalysisDir+'\\Fukuchi2017-Running-sampleDict.pbz2')
     
+else:
+    
+    #Load the pre-sampled gait cycle data
+    sampleDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-sampleDict.pbz2')
+
+    #Print confirmation
+    print('Pre-sampled gait cycle numbers imported.')
+
 #Convert dictionary to a dataframe
 df_samples = pd.DataFrame.from_dict(sampleDict)
     
+# %% Data analysis
+
+# The below section undertakes a series of analyses to answer the specific research
+# questions (RQs) for this study.Below cell sections include specific notes on
+# the various RQs prior to them being encapsulated within a set series of loops.
+# The below analysis and sampling procedures are time intensive, hence the pre
+# analysed data is available and can be loaded in by keeping the below variable
+# set to False. If analysis needs to be undertaken, set this to True.
+analyseData = True #False
+
 # %% RQ1: Sequential analysis with increasing gait cycle number
 
 ##### TODO: consider appropriateness of this vs. sequential analysis of a series
@@ -655,19 +820,111 @@ df_samples = pd.DataFrame.from_dict(sampleDict)
 #
 # Here we also consider 0D peak variables as a comparison to the 1D curves.
 
-#Set a dictionary to store findings of sequential analysis
+# %% RQ2: Varying cycle number comparison to 'ground truth' mean
+    
+# This analysis compares a sample of an individuals treadmill bout to their 
+# entire treadmill bout (i.e. 'ground truth'). Given we don't know exactly what
+# an individuals 'true' kinematics are, we take the entire treadmill bout as this
+# 'truth' value --- and this is supported by the sequential analysis results
+# where it appears most (if not all) have a pretty stable mean. 
+#
+# The sampled mean (with varying number of gait cycles) is compared to our 'ground
+# truth' mean, and given these come from the same treadmill running bout we effectively
+# want to see no statistical difference. With the alpha level set at 0.05, we do
+# however consider a false-positive rate of 5% to come up.
+#
+# Here we consider 0D peak variables as week as the 1D curves.
+
+# %% RQ3: Comparing samples from different sections of trial
+
+##### TODO: this is repetitive of the above sample cycling, so perhaps encase
+##### both within same loop to speed up process...
+
+# %% RQ4: Cycle sampling and number effect on refuting null hypothesis
+
+# This section examines the effect of gait cycle number and sampling on the findings
+# from null hypothesis testing, specifically the effect of speed on gait biomechanics.
+# The original work of Fukuchi et al. (2017) examined this question, and found 
+# a series of biomechanical variables are impacted by gait speed. Here we iteratively
+# replicate this hypothesis testing with varying numbers and differently sampled
+# gait cycles contributing to participant data. The theory being tested here is
+# how does the number and selection of gait cycles impact the answers to our hypothesis
+# testing.
+
+##### TODO: considerations around 0D vs. 1D variables, ANOVA vs. t-test
+
+##### To start with, replicate the Fukuchi et al. analysis...
+
+# %% Start the analysis...
+
+##### TODO: from a data storage/file size perspective, do we really need the
+##### extracted data from every sample iteration to be stored??? Even in a compressed
+##### state this produces massive files (e.g. the groundTruthDict is 624MB even
+##### on the 100 sample iterations!)
+#####
+##### It's potentially necessary to actually probe certain findings, and may be
+##### just a by-product we have to cop with what we're doing...
+
+#Set a dictionary to store findings of sequential analysis (RQ1)
 seqDict = {'nGC': [], 'subID': [], 'trialID': [], 'analysisVar': [],
-           # 'contSEQ': [], 'peakSEQ': [], 'maxSEQ': [], 'minSEQ': [], 'meanSEQ': [],
-           # 'absMaxSEQ': [], 'absMeanSEQ': [],
            'seqVal': [], 'varType': []}
+
+#Set a dictionary to store the ground truth comparisons to (RQ2)
+groundTruthDict = {'extractNo': [], 'trialID': [], 'varType': [],
+                   'rejectH0': [], 'pVal': [],
+                   'analysisVar': [],
+                   'groundTruth': [], 'extract': [],
+                   'groundTruth_m': [], 'extract_m': [],
+                   'meanAbsError': [], 'effectSize': []}
+
+#Set a dictionary to store findings of comparing different samples of gait cycles (RQ3)
+compDict = {'extractNo': [], 'trialID': [], 'varType': [],
+            'rejectH0': [], 'pVal': [],
+            'analysisVar': [],
+            'Y1': [], 'Y2': [],
+            'Y1_m': [], 'Y2_m': [],
+            'meanAbsError': [], 'effectSize': []}
+
+#Set dictionary to store extracted values in for 0D ANOVA (RQ4)
+anovaDataDict = {'sampleNo': [], 'extractNo': [],
+                 'vals': [], 'varType': [], 
+                 'speed': []}
+
+# #Set dictionary to store 0D ANOVA results (RQ4)
+# anovaDict = {'extractNo': [], 'analysisVar': [], 'startPoint': [],
+#              'analysisData': [], 'mean': [], 'sd': [],
+#              'aovrmResults': [], 'F': [], 'p': [], 'rejectH0': []}
+
+# #Set dictionary to store 0D post-hoc pairwise results (RQ4)
+# pairwiseDict = {'extractNo': [], 'analysisVar': [], 'startPoint': [],
+#                 'comparison': [], 'val0D': [], 'mean': [], 'sd': [],
+#                 't': [], 'p': [], 'rejectH0': []}
+
+#Calculate total iterations for progressive timing and time left estimates
+totalIter = len(trialList) * len(analysisVar) * len(extractNo)
+
+#Set a current interations variable
+currIter = 0
+
+#Start timer
+t0 = time.time()
 
 #Loop through trial types
 for tt in range(len(trialList)):
-
+    
+    #Extract the dataframe for the current trial ID
+    df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
+    
     #Loop through variables
     for vv in range(len(analysisVar)):
         
-        #Loop through participants and calculate individual stability
+        #Calculate the 'ground truth' values based on all of the participants
+        #gait cycles for the current variables        
+        #Set the 'ground truth' mean array
+        groundTruth_0D = np.zeros((len(subList),1))
+        groundTruth_1D = np.zeros((len(subList),101))
+        
+        #Loop through participants
         for ii in range(len(subList)):
 
             #Extract the current participants kinematic data relevant to
@@ -680,58 +937,35 @@ for tt in range(len(trialList)):
             #Get the right foot strike indices
             rightFS = dataDict['rightFS'][currInd]
             
-            #Set a space to store normalised data into for calculating
-            #current subjects mean
-            normData = np.empty((len(rightFS)-1,101))
+            #Extract participants normalised data for the current trial and variable
+            normDataAll = normDataDict[trialList[tt]][analysisVar[vv]][ii]
+                
+            #Calculate the mean/SD of all of the current subjects normalised data
+            total_m = np.mean(normDataAll, axis = 0)
+            total_sd = np.std(normDataAll, axis = 0)
             
-            #Get the IK dataframe
-            df_ik = dataDict['kinematics'][currInd]
+            #Calculate the peak 0D variable mean/SD of all normalised data
+            peak_m = np.mean(np.max(normDataAll, axis = 1), axis = 0)
+            peak_sd = np.std(np.max(normDataAll, axis = 1), axis = 0)
             
-            #Loop through number of gait cycles and normalise kinematics
-            for nn in range(len(rightFS)-1):
-                
-                #Extract data between current heel strikes
-            
-                #Get start and end time
-                startTime = rightFS[nn]
-                endTime = rightFS[nn+1]
-                
-                #Create a boolean mask for in between event times
-                extractTime = ((df_ik['time'] > startTime) & (df_ik['time'] < endTime)).values
-                
-                #Extract the time values
-                timeVals = df_ik['time'][extractTime].values
-                
-                #Extract the data
-                dataVals = df_ik[analysisVar[vv]][extractTime].values
-                
-                #Normalise data to 0-100%
-                newTime = np.linspace(timeVals[0],timeVals[-1],101)
-                interpData = np.interp(newTime,timeVals,dataVals)                    
-                
-                #Store interpolated data in array
-                normData[nn,:] = interpData
-                
             #Calculate the mean of the current subjects normalised data
-            total_m = np.mean(normData, axis = 0)
-            total_sd = np.std(normData, axis = 0)
-            
-            #Calculate the peak 0D variable mean and SD for later analysis
-            peak_m = np.mean(np.max(normData, axis = 1), axis = 0)
-            peak_sd = np.std(np.max(normData, axis = 1), axis = 0)
+            #Store in the current ground truths array for SPM1D analysis
+            #Also calculate the mean of the peaks here and store in 0D array
+            groundTruth_1D[ii,:] = np.mean(normDataAll, axis = 0)
+            groundTruth_0D[ii,0] = np.mean(np.max(normDataAll, axis = 1), axis = 0)
             
             #Loop through n+1 number of gait cycles sequentially and assess
             #points relative to +/- 0.25 SD bounds
             for nn in range(1,len(rightFS)-1):
                 
                 #Calculate mean and SD for current number of cycles
-                curr_m = np.mean(normData[0:nn+1,:], axis = 0)
+                curr_m = np.mean(normDataAll[0:nn+1,:], axis = 0)
                 
                 #Normalise to zero mean and 1 SD
                 curr_norm = (curr_m - total_m) / total_sd
                 
                 #Calculate peak mean for 0D variable
-                curr_peak_m = np.mean(np.max(normData[0:nn+1,:], axis = 1), axis = 0)
+                curr_peak_m = np.mean(np.max(normDataAll[0:nn+1,:], axis = 1), axis = 0)
                 
                 #Normalise to zero mean and 1SD
                 curr_peak_norm = (curr_peak_m - peak_m) / peak_sd
@@ -744,13 +978,6 @@ for tt in range(len(trialList)):
                 seqDict['subID'].append(subList[ii])
                 seqDict['trialID'].append(trialList[tt])
                 seqDict['analysisVar'].append(analysisVar[vv])
-                # seqDict['contSEQ'].append(curr_norm)
-                # seqDict['peakSEQ'].append(curr_peak_norm)
-                # seqDict['maxSEQ'].append(np.max(curr_norm))
-                # seqDict['minSEQ'].append(np.min(curr_norm))
-                # seqDict['meanSEQ'].append(np.mean(curr_norm))
-                # seqDict['absMaxSEQ'].append(np.max(np.abs(curr_norm)))
-                # seqDict['absMeanSEQ'].append(np.mean(np.abs(curr_norm)))
                 seqDict['seqVal'].append(np.max(np.abs(curr_norm)))
                 seqDict['varType'].append('1D')
                 
@@ -761,19 +988,300 @@ for tt in range(len(trialList)):
                 seqDict['analysisVar'].append(analysisVar[vv])
                 seqDict['seqVal'].append(curr_peak_norm)
                 seqDict['varType'].append('0D')
-                
-            #Print confirmation
-            print('Sequential analysis complete for '+subList[ii]+
-                  ' for '+analysisVar[vv]+' during '+trialList[tt])
+            
+        #Flatten 0D ground truth array
+        groundTruth_0D = groundTruth_0D.flatten()
         
-        #Print confirmation
-        print('Sequential analysis complete for '+analysisVar[vv]+
-              '. '+str(vv+1)+' of '+str(len(analysisVar))+
-              ' variables completed for '+trialList[tt])
-    
-    #Print confirmation
-    print('Sequential analysis completed for '+trialList[tt]+
-          '. '+str(tt+1)+' of '+str(len(trialList))+' trial types completed.')
+        #Loop through the extraction numbers
+        for ee in range(len(extractNo)):
+            
+            #Set current extract number
+            currNo = int(extractNo[ee])
+            
+            #Extract the dataframe for the current extraction number
+            df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
+            
+            #Loop through the sampling number
+            for ss in tqdm.tqdm(range(nSamples),
+                                desc = 'Sampling '+str(currNo)+' gait cycles for '+
+                                analysisVar[vv]+' from '+trialList[tt]):
+            # for ss in range(nSamples):
+                
+                #Set array to store the extracted datasets for this sample iteration
+                #that will be compared to the ground truth dataset
+                #Both 0D and 1D variables
+                extract_1D = np.zeros((len(subList),101))
+                extract_0D = np.zeros((len(subList),1))
+                
+                #Set array to store the extracted datasets for this sample iteration
+                #that will be compared to one another
+                #Both 0D and 1D variables
+                #Not that this analysis is only undertaken if the current gait
+                #cycle extraction number is relevant for comparing the two
+                if currNo <= max(extractNoDual):
+                    Y1_1D = np.zeros((len(subList),101))
+                    Y2_1D = np.zeros((len(subList),101))
+                    Y1_0D = np.zeros((len(subList),1))
+                    Y2_0D = np.zeros((len(subList),1))
+                
+                #Loop through subjects and get their data for the current sample
+                for ii in range(len(subList)):
+                                        
+                    #Extract the dataframe that matches the current subject
+                    #As part of this also extract the row that matches the current
+                    #sampling iteration index
+                    df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
+                    df_currIter = df_currSub.iloc[ss]
+                    
+                    #Extract the current participants kinematic data relevant to
+                    #current trial tupe. Get the index corresponding to this in the
+                    #data dictionary.
+                    subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+                    trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+                    currInd = list(set(subInd) & set(trialInd))[0]
+                    
+                    #Get the right foot strike indices
+                    rightFS = dataDict['rightFS'][currInd]
+                    
+                    #Extract participants normalised data for the current trial and variable
+                    normDataAll = normDataDict[trialList[tt]][analysisVar[vv]][ii]
+                    
+                    #Set a space to store normalised data for current extraction
+                    #for the singular set of foot strikes
+                    normDataSingle = np.zeros((currNo,101))
+                    
+                    #Set a space to store normalised data for current extraction
+                    #for the comparative set of foot strikes
+                    #Again, this is only relevant if the current gait cycle extraction
+                    #number sits within the dual gait cycle extraction values
+                    if currNo <= max(extractNoDual):
+                        normDataDual1 = np.zeros((currNo,101))
+                        normDataDual2 = np.zeros((currNo,101))
+                    
+                    #Loop through extraction number and get normalised kinematics
+                    for nn in range(currNo):
+                        
+                        #Grab the appropriate gait cycle and append to array
+                        normDataSingle[nn,:] = normDataAll[df_currIter['footStrikes'][nn]]
+                        if currNo <= max(extractNoDual):
+                            normDataDual1[nn,:] = normDataAll[df_currIter['footStrikes1'][nn]]
+                            normDataDual2[nn,:] = normDataAll[df_currIter['footStrikes2'][nn]]
+                
+                    #Calculate the mean of the current subjects normalised data
+                    #Store in the current sample iterations array for SPM1D analysis
+                    #For the singular gait cycle set data
+                    extract_1D[ii,:] = np.mean(normDataSingle, axis = 0)
+                    extract_0D[ii,0] = np.mean(np.max(normDataSingle, axis = 1), axis = 0)
+                    #For the comparative gait cycle set data
+                    if currNo <= max(extractNoDual):
+                        Y1_1D[ii,:] = np.mean(normDataDual1, axis = 0)
+                        Y1_0D[ii,0] = np.mean(np.max(normDataDual1, axis = 1), axis = 0)
+                        Y2_1D[ii,:] = np.mean(normDataDual2, axis = 0)
+                        Y2_0D[ii,0] = np.mean(np.max(normDataDual2, axis = 1), axis = 0)
+                    
+                #Flatten 0D arrays
+                extract_0D = extract_0D.flatten()
+                if currNo <= max(extractNoDual):
+                    Y1_0D = Y1_0D.flatten()
+                    Y2_0D = Y2_0D.flatten()
+                
+                #RQ2 statistical analysis
+                
+                #Conduct the SPM1D t-test on comparing ground truth to extracted
+                t_RQ2 = spm1d.stats.ttest_paired(groundTruth_1D, extract_1D)
+                ti_RQ2 = t_RQ2.inference(alpha, two_tailed = True, interp = True)
+                
+                # #Visualise ground truth vs. extracted comparison
+                # #Set-up plot
+                # plt.figure(figsize=(8, 3.5))
+                # #Plot mean and SD of two samples
+                # ax1 = plt.axes((0.1, 0.15, 0.35, 0.8))
+                # spm1d.plot.plot_mean_sd(groundTruth_1D, linecolor = 'b', facecolor = 'b')
+                # spm1d.plot.plot_mean_sd(extract_1D, linecolor = 'r', facecolor='r')
+                # ax1.axhline(y = 0, color = 'k', linestyle=':')
+                # ax1.set_xlabel('0-100% Gait Cycle')
+                # ax1.set_ylabel(analysisVar[vv])
+                # #Plot SPM results
+                # ax2 = plt.axes((0.55,0.15,0.35,0.8))
+                # ti_RQ2.plot()
+                # ti_RQ2.plot_threshold_label(fontsize = 8)
+                # ti_RQ2.plot_p_values(size = 10, offsets = [(0,0.3)])
+                # ax2.set_xlabel('0-100% Gait Cycle')
+                # #Show plot
+                # plt.show()
+                
+                #Calculate mean absolute error and effect between current two curves
+                groundTruth_1D_m = np.mean(groundTruth_1D, axis = 0)
+                extract_1D_m = np.mean(extract_1D, axis = 0)
+                mae_1D_RQ2 = np.mean(abs(groundTruth_1D_m - extract_1D_m))
+                cohens_1D_RQ2 = calcCohensD_1D(groundTruth_1D, extract_1D)
+                
+                #Conduct paired t-test on peak values
+                t0_RQ2,p0_RQ2 = stats.ttest_rel(groundTruth_0D, extract_0D)
+                if p0_RQ2 < 0.05:
+                    h0reject_0D_RQ2 = True
+                else:
+                    h0reject_0D_RQ2 = False
+                    
+                #Calculate mean absolute error and effect between current 0D variables
+                groundTruth_0D_m = np.mean(groundTruth_0D, axis = 0)
+                extract_0D_m = np.mean(extract_0D, axis = 0)
+                mae_0D_RQ2 = np.mean(abs(groundTruth_0D_m - extract_0D_m))
+                cohens_0D_RQ2 = calcCohensD_0D(groundTruth_0D, extract_0D)
+                
+                #RQ3 statistical analysis
+                if currNo <= max(extractNoDual):
+                
+                    #Conduct the SPM1D t-test comparing the two extracted samples
+                    t_RQ3 = spm1d.stats.ttest_paired(Y1_1D, Y2_1D)
+                    ti_RQ3 = t_RQ3.inference(alpha, two_tailed = True, interp = True)
+                    
+                    # #Visualise two extracted samples comparison
+                    # #Set-up plot
+                    # plt.figure(figsize=(8, 3.5))
+                    # #Plot mean and SD of two samples
+                    # ax1 = plt.axes((0.1, 0.15, 0.35, 0.8))
+                    # spm1d.plot.plot_mean_sd(Y1_1D, linecolor = 'b', facecolor = 'b')
+                    # spm1d.plot.plot_mean_sd(Y1_1D, linecolor = 'r', facecolor='r')
+                    # ax1.axhline(y = 0, color = 'k', linestyle=':')
+                    # ax1.set_xlabel('0-100% Gait Cycle')
+                    # ax1.set_ylabel(analysisVar[vv])
+                    # #Plot SPM results
+                    # ax2 = plt.axes((0.55,0.15,0.35,0.8))
+                    # ti_RQ3.plot()
+                    # ti_RQ3.plot_threshold_label(fontsize = 8)
+                    # ti_RQ3.plot_p_values(size = 10, offsets = [(0,0.3)])
+                    # ax2.set_xlabel('0-100% Gait Cycle')
+                    # #Show plot
+                    # plt.show()
+                    
+                    #Calculate mean absolute error and effect between two sampled curves
+                    Y1_1D_m = np.mean(Y1_1D, axis = 0)
+                    Y2_1D_m = np.mean(Y2_1D, axis = 0)
+                    mae_1D_RQ3 = np.mean(abs(Y1_1D_m - Y2_1D_m))
+                    cohens_1D_RQ3 = calcCohensD_1D(Y1_1D, Y2_1D)
+                    
+                    #Conduct paired t-test on peak values
+                    t0_RQ3,p0_RQ3 = stats.ttest_rel(Y1_0D, Y2_0D)
+                    if p0_RQ3 < 0.05:
+                        h0reject_0D_RQ3 = True
+                    else:
+                        h0reject_0D_RQ3 = False
+                        
+                    #Calculate mean absolute error and effect for 0D variable between two samples
+                    Y1_0D_m = np.mean(Y1_0D, axis = 0)
+                    Y2_0D_m = np.mean(Y2_0D, axis = 0)
+                    mae_0D_RQ3 = np.mean(abs(Y1_0D_m - Y2_0D_m))
+                    cohens_0D_RQ3 = calcCohensD_0D(Y1_0D, Y2_0D)
+                
+                #RQ2 data appending
+                
+                #Collate results from this ground truth comparison into dictionary
+                #1D
+                groundTruthDict['extractNo'].append(currNo)
+                groundTruthDict['trialID'].append(trialList[tt])
+                groundTruthDict['varType'].append('1D')
+                groundTruthDict['rejectH0'].append(ti_RQ2.h0reject)
+                groundTruthDict['pVal'].append(ti_RQ2.p) #note there are no p-values for non-statistically significant results            
+                groundTruthDict['analysisVar'].append(analysisVar[vv])
+                groundTruthDict['groundTruth'].append(groundTruth_1D)
+                groundTruthDict['extract'].append(extract_1D)
+                groundTruthDict['groundTruth_m'].append(groundTruth_1D_m)
+                groundTruthDict['extract_m'].append(extract_1D_m)
+                groundTruthDict['meanAbsError'].append(mae_1D_RQ2)
+                groundTruthDict['effectSize'].append(cohens_1D_RQ2)
+                #0D
+                groundTruthDict['extractNo'].append(currNo)
+                groundTruthDict['trialID'].append(trialList[tt])
+                groundTruthDict['varType'].append('0D')
+                groundTruthDict['rejectH0'].append(h0reject_0D_RQ2)
+                groundTruthDict['pVal'].append(p0_RQ2)                
+                groundTruthDict['analysisVar'].append(analysisVar[vv])
+                groundTruthDict['groundTruth'].append(groundTruth_0D)
+                groundTruthDict['extract'].append(extract_0D)
+                groundTruthDict['groundTruth_m'].append(groundTruth_0D_m)
+                groundTruthDict['extract_m'].append(extract_0D_m)
+                groundTruthDict['meanAbsError'].append(mae_0D_RQ2)
+                groundTruthDict['effectSize'].append(cohens_0D_RQ2)
+                
+                #RQ3 data appending
+                if currNo <= max(extractNoDual):
+                
+                    #Collate results from this two sample comparison into dictionary
+                    #1D
+                    compDict['extractNo'].append(currNo)
+                    compDict['trialID'].append(trialList[tt])
+                    compDict['varType'].append('1D')
+                    compDict['rejectH0'].append(ti_RQ3.h0reject)
+                    compDict['pVal'].append(ti_RQ3.p) #note there are no p-values for non-statistically significant results
+                    compDict['analysisVar'].append(analysisVar[vv])
+                    compDict['Y1'].append(Y1_1D)
+                    compDict['Y2'].append(Y2_1D)
+                    compDict['Y1_m'].append(Y1_1D_m)
+                    compDict['Y2_m'].append(Y2_1D_m)
+                    compDict['meanAbsError'].append(mae_1D_RQ3)
+                    compDict['effectSize'].append(cohens_1D_RQ3)
+                    #0D
+                    compDict['extractNo'].append(currNo)
+                    compDict['trialID'].append(trialList[tt])
+                    compDict['varType'].append('0D')
+                    compDict['rejectH0'].append(h0reject_0D_RQ3)
+                    compDict['pVal'].append(p0_RQ3)                
+                    compDict['analysisVar'].append(analysisVar[vv])
+                    compDict['Y1'].append(Y1_0D)
+                    compDict['Y2'].append(Y2_0D)
+                    compDict['Y1_m'].append(Y1_0D_m)
+                    compDict['Y2_m'].append(Y2_0D_m)
+                    compDict['meanAbsError'].append(mae_0D_RQ3)
+                    compDict['effectSize'].append(cohens_0D_RQ3)
+                    
+                #Store the values in dictionary for RQ4 0D ANOVA
+                anovaDataDict['sampleNo'].append(ss)
+                anovaDataDict['vals'].append(extract_0D)
+                anovaDataDict['varType'].append('0D')
+                anovaDataDict['extractNo'].append(currNo)
+                anovaDataDict['speed'].append(trialList[tt])
+                
+                #Store the values in dictionary for RQ4 0D ANOVA
+                anovaDataDict['sampleNo'].append(ss)
+                anovaDataDict['vals'].append(extract_1D)
+                anovaDataDict['varType'].append('1D')
+                anovaDataDict['extractNo'].append(currNo)
+                anovaDataDict['speed'].append(trialList[tt])
+                
+            #Print completion notice for the current cycle
+            print('\nCompleted analysis for '+str(currNo)+' gait cycles of '+
+                  analysisVar[vv]+' from '+trialList[tt])
+            
+            #Get the new time to compare to the starting time
+            tCurr = time.time()
+            
+            #Add an iteration and print how far through we are
+            currIter = currIter + 1
+            perProg = currIter / totalIter * 100            
+            print(str(round(perProg,2))+'% through analysis...')
+            
+            #Calculate and print the estimated time remaining (in mins)
+            #Only need to display estimated time if current iteration isn't the last
+            if currIter != totalIter:
+                avgIterTime = (tCurr - t0) / currIter
+                estRemTime = (avgIterTime * (totalIter - currIter)) / 60 / 60
+                print('Estimated analysis time remaining: '+str(round(estRemTime,2))+' hours!')
+                
+#Stash the compiled analysis dictionaries for later use
+##### TODO: these are currently on 100 sample simulations...
+savePickleDict(seqDict, storeAnalysisDir+'\\Fukuchi2017-Running-seqDict.pbz2')
+savePickleDict(groundTruthDict, storeAnalysisDir+'\\Fukuchi2017-Running-groundTruthDict.pbz2')
+savePickleDict(compDict, storeAnalysisDir+'\\Fukuchi2017-Running-compDict.pbz2')
+savePickleDict(anovaDataDict, storeAnalysisDir+'\\Fukuchi2017-Running-anovaDataDict.pbz2')
+
+# seqDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-seqDict.pbz2')
+# groundTruthDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-groundTruthDict.pbz2')
+# compDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-compDict.pbz2')
+# anovaDataDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-anovaDataDict.pbz2')
+
+# %%
+
 
 #Convert dictionary to a dataframe
 df_seqAnalysis = pd.DataFrame.from_dict(seqDict)
@@ -955,6 +1463,10 @@ for tt in range(len(trialList)):
     print('Sequential results extracted for '+trialList[tt]+
           '. '+str(tt+1)+' of '+str(len(trialList))+' trial types completed.')
 
+#Stash the compiled sequential results for speedier use later
+savePickleDict(seqResultsDict, storeAnalysisDir+'\\Fukuchi2017-Running-seqResultsDict.pbz2')
+# seqResultsDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-seqResultsDict.pbz2')
+
 #Convert to dataframe
 df_seqResults = pd.DataFrame.from_dict(seqResultsDict)
 
@@ -1029,6 +1541,10 @@ for tt in range(len(trialList)):
             seqSummaryDict['min'].append(Xmin_1D)
             seqSummaryDict['max'].append(Xmax_1D)
             seqSummaryDict['ci95'].append(ci95_1D)
+
+#Stash the compiled sequential summary for speedier use later
+savePickleDict(seqSummaryDict, storeAnalysisDir+'\\Fukuchi2017-Running-seqSummaryDict.pbz2')
+# seqSummaryDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-seqSummaryDict.pbz2')
 
 #Convert to dataframe
 df_seqSummary = pd.DataFrame.from_dict(seqSummaryDict)
@@ -1111,6 +1627,8 @@ sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
 #### Could consider taking absolute of these peak SD sequential values too for
 #### consistency with the 1D variables...
 
+# %% BELOW = POTENTIALLY OLD / ALREADY DONE...
+
 # %% RQ2: Varying cycle number comparison to 'ground truth' mean
     
 # This analysis compares a sample of an individuals treadmill bout to their 
@@ -1143,7 +1661,7 @@ for tt in range(len(trialList)):
     df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
     
     #Loop through analysis variables
-    for vv in range(2,len(analysisVar)):
+    for vv in range(len(analysisVar)):
         
         #Calculate the 'ground truth' values based on all of the participants
         #gait cycles
@@ -1165,37 +1683,8 @@ for tt in range(len(trialList)):
             #Get the right foot strike indices
             rightFS = dataDict['rightFS'][currInd]
             
-            #Set a space to store normalised data into for calculating
-            #current subjects mean
-            normData = np.empty((len(rightFS)-1,101))
-            
-            #Get the IK dataframe
-            df_ik = dataDict['kinematics'][currInd]
-            
-            #Loop through number of gait cycles and normalise kinematics
-            for nn in range(len(rightFS)-1):
-                
-                #Extract data between current heel strikes
-            
-                #Get start and end time
-                startTime = rightFS[nn]
-                endTime = rightFS[nn+1]
-                
-                #Create a boolean mask for in between event times
-                extractTime = ((df_ik['time'] > startTime) & (df_ik['time'] < endTime)).values
-                
-                #Extract the time values
-                timeVals = df_ik['time'][extractTime].values
-                
-                #Extract the data
-                dataVals = df_ik[analysisVar[vv]][extractTime].values
-                
-                #Normalise data to 0-100%
-                newTime = np.linspace(timeVals[0],timeVals[-1],101)
-                interpData = np.interp(newTime,timeVals,dataVals)                    
-                
-                #Store interpolated data in array
-                normData[nn,:] = interpData
+            #Extract participants normalised data for the current trial and variable
+            normData = normDataDict[trialList[tt]][analysisVar[vv]][ii]
                 
             #Calculate the mean of the current subjects normalised data
             #Store in the current ground truths array for SPM1D analysis
@@ -1232,10 +1721,6 @@ for tt in range(len(trialList)):
                     df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
                     df_currIter = df_currSub.iloc[ss]
                     
-                    #Set a space to store normalised data into for calculating
-                    #current subjects mean
-                    normData = np.empty((currNo,101))
-                    
                     #Extract the current participants kinematic data relevant to
                     #current trial tupe. Get the index corresponding to this in the
                     #data dictionary.
@@ -1246,35 +1731,17 @@ for tt in range(len(trialList)):
                     #Get the right foot strike indices
                     rightFS = dataDict['rightFS'][currInd]
                     
-                    #Get the IK dataframe
-                    df_ik = dataDict['kinematics'][currInd]
+                    #Extract participants normalised data for the current trial and variable
+                    normDataAll = normDataDict[trialList[tt]][analysisVar[vv]][ii]
                     
-                    #Loop through extraction number and normalise kinematics
+                    #Set a space to store normalised data for current extraction
+                    normData = np.zeros((currNo,101))
+                    
+                    #Loop through extraction number and get normalised kinematics
                     for nn in range(currNo):
                         
-                        #Extract data between current heel strikes
-                        #Note that for this singular comparison we used the random
-                        #sampled gait cycle sequence for 'footStrikes1'
-                    
-                        #Get start and end time
-                        startTime1 = rightFS[df_currIter['footStrikes'][nn]]
-                        endTime1 = rightFS[df_currIter['footStrikes'][nn+1]]
-                        
-                        #Create a boolean mask for in between event times
-                        extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
-                        
-                        #Extract the time values
-                        timeVals1 = df_ik['time'][extractTime1].values
-                        
-                        #Extract the data
-                        dataVals1 = df_ik[analysisVar[vv]][extractTime1].values
-                        
-                        #Normalise data to 0-100%
-                        newTime1 = np.linspace(timeVals1[0],timeVals1[-1],101)
-                        interpData1 = np.interp(newTime1,timeVals1,dataVals1)                    
-                        
-                        #Store interpolated data in array
-                        normData[nn,:] = interpData1
+                        #Grab the appropriate gait cycle and append to array
+                        normData[nn,:] = normDataAll[df_currIter['footStrikes'][nn]]
                 
                     #Calculate the mean of the current subjects normalised data
                     #Store in the current sample iterations array for SPM1D analysis
@@ -1355,6 +1822,10 @@ for tt in range(len(trialList)):
                       str(currNo)+' gait cycles of '+analysisVar[vv]+' from '+
                       trialList[tt])
 
+#Stash the ground truth comparisons for speedier use later
+savePickleDict(groundTruthDict, storeAnalysisDir+'\\Fukuchi2017-Running-groundTruthDict.pbz2')
+# groundTruthDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-groundTruthDict.pbz2')
+
 #Convert dictionary to a dataframe
 df_groundTruthComp = pd.DataFrame.from_dict(groundTruthDict)
 
@@ -1382,7 +1853,7 @@ for vv in range(len(analysisVar)):
     Y_1D = np.zeros((len(extractNo),1))
     
     #Loop through extraction number to get the count and H0 rejection rate
-    for ee in range(len(extractNoDual)):
+    for ee in range(len(extractNo)):
         
         #Set extraction number in array
         X[ee,0] = extractNo[ee]
@@ -1449,7 +1920,6 @@ for tt in range(len(trialList)):
                 Y2_0D = np.zeros((len(subList),1))
                 
                 #Loop through subjects and get their data for the current sample
-                # for ii in range(len(subList)):
                 for ii in range(len(subList)):
                     
                     #Extract the dataframe that matches the current subject
@@ -1457,11 +1927,6 @@ for tt in range(len(trialList)):
                     #sampling iteration index
                     df_currSub = df_currExtract.loc[df_currExtract['subID'] == subList[ii],]
                     df_currIter = df_currSub.iloc[ss]
-                    
-                    #Set a space to store normalised data into for calculating
-                    #current subjects mean
-                    normData1 = np.zeros((currNo,101))
-                    normData2 = np.zeros((currNo,101))
                     
                     #Extract the current participants kinematic data relevant to
                     #current trial tupe. Get the index corresponding to this in the
@@ -1473,41 +1938,19 @@ for tt in range(len(trialList)):
                     #Get the right foot strike indices
                     rightFS = dataDict['rightFS'][currInd]
                     
-                    #Get the IK dataframe
-                    df_ik = dataDict['kinematics'][currInd]
+                    #Extract participants normalised data for the current trial and variable
+                    normDataAll = normDataDict[trialList[tt]][analysisVar[vv]][ii]
                     
-                    #Loop through extraction number and normalise kinematics
+                    #Set a space to store normalised data for current extraction
+                    normData1 = np.zeros((currNo,101))
+                    normData2 = np.zeros((currNo,101))
+                    
+                    #Loop through extraction number and get normalised kinematics
                     for nn in range(currNo):
                         
-                        #Extract data between current heel strikes
-                    
-                        #Get start and end time
-                        startTime1 = rightFS[df_currIter['footStrikes1'][nn]]
-                        endTime1 = rightFS[df_currIter['footStrikes1'][nn+1]]
-                        startTime2 = rightFS[df_currIter['footStrikes2'][nn]]
-                        endTime2 = rightFS[df_currIter['footStrikes2'][nn+1]]
-                        
-                        #Create a boolean mask for in between event times
-                        extractTime1 = ((df_ik['time'] > startTime1) & (df_ik['time'] < endTime1)).values
-                        extractTime2 = ((df_ik['time'] > startTime2) & (df_ik['time'] < endTime2)).values
-                        
-                        #Extract the time values
-                        timeVals1 = df_ik['time'][extractTime1].values
-                        timeVals2 = df_ik['time'][extractTime2].values
-                        
-                        #Extract the data
-                        dataVals1 = df_ik[analysisVar[vv]][extractTime1].values
-                        dataVals2 = df_ik[analysisVar[vv]][extractTime2].values
-                        
-                        #Normalise data to 0-100%
-                        newTime1 = np.linspace(timeVals1[0],timeVals1[-1],101)
-                        newTime2 = np.linspace(timeVals2[0],timeVals2[-1],101)
-                        interpData1 = np.interp(newTime1,timeVals1,dataVals1)                    
-                        interpData2 = np.interp(newTime2,timeVals2,dataVals2)
-                        
-                        #Store interpolated data in array
-                        normData1[nn,:] = interpData1
-                        normData2[nn,:] = interpData2
+                        #Grab the appropriate gait cycle and append to arrays
+                        normData1[nn,:] = normDataAll[df_currIter['footStrikes1'][nn]]
+                        normData2[nn,:] = normDataAll[df_currIter['footStrikes2'][nn]]
                 
                     #Calculate the mean of the current subjects normalised data
                     #Store in the current sample iterations array for SPM1D analysis
@@ -1591,6 +2034,10 @@ for tt in range(len(trialList)):
                 print('Completed '+str(ss+1)+' of '+str(nSamples)+' for '+
                       str(currNo)+' gait cycles of '+analysisVar[vv]+' from '+
                       trialList[tt])
+
+#Stash the cycle comparisons for speedier use later
+savePickleDict(compDict, storeAnalysisDir+'\\Fukuchi2017-Running-compDict.pbz2')
+# compDict = loadPickleDict(storeAnalysisDir+'\\Fukuchi2017-Running-compDict.pbz2')
                 
 #Convert to dataframe
 df_compSamples = pd.DataFrame.from_dict(compDict)
@@ -1626,65 +2073,7 @@ np.sum(rejectH0) / len(rejectH0)
 vv = 3
 
 
-#Extract each participants gait cycles into time normalised arrays
 
-#Set dictionary to store data in
-normDataDict = {key: [] for key in trialList}
-
-#Loop through subjects
-for ii in range(len(subList)):
-    
-    #Loop through trial types
-    for tt in range(len(trialList)):
-    
-        #Extract the current participants kinematic data relevant to
-        #current trial tupe. Get the index corresponding to this in the
-        #data dictionary.
-        subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
-        trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
-        currInd = list(set(subInd) & set(trialInd))[0]
-        
-        #Get the right foot strike indices
-        rightFS = dataDict['rightFS'][currInd]
-        
-        #Set a space to store normalised data into for calculating
-        #current subjects mean
-        normData = np.zeros((len(rightFS)-1,101))
-        
-        #Get the IK dataframe
-        df_ik = dataDict['kinematics'][currInd]
-        
-        #Loop through number of gait cycles and normalise kinematics
-        for nn in range(len(rightFS)-1):
-            
-            #Extract data between current heel strikes
-        
-            #Get start and end time
-            startTime = rightFS[nn]
-            endTime = rightFS[nn+1]
-            
-            #Create a boolean mask for in between event times
-            extractTime = ((df_ik['time'] > startTime) & (df_ik['time'] < endTime)).values
-            
-            #Extract the time values
-            timeVals = df_ik['time'][extractTime].values
-            
-            #Extract the data
-            dataVals = df_ik[analysisVar[vv]][extractTime].values
-            
-            #Normalise data to 0-100%
-            newTime = np.linspace(timeVals[0],timeVals[-1],101)
-            interpData = np.interp(newTime,timeVals,dataVals)                    
-            
-            #Store interpolated data in array
-            normData[nn,:] = interpData
-            
-        #Append normalised data into appropriate dictionary key
-        normDataDict[trialList[tt]].append(normData)
-        
-        #Print confirmation
-        print('Data normalised and extracted for '+subList[ii]+
-              ' for '+trialList[tt]+'.')
 
 #Set dictionary to store 0D ANOVA results
 anovaDict = {'extractNo': [], 'analysisVar': [], 'startPoint': [],
