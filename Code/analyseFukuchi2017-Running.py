@@ -886,7 +886,9 @@ analyseSamples = True #False
 #                 't': [], 'p': [], 'rejectH0': []}
 
 #Calculate total iterations for progressive timing and time left estimates
-totalIter = len(trialList) * len(analysisVar) * len(extractNo)
+#### TODO: adapt...
+# totalIter = len(trialList) * len(analysisVar) * len(extractNo)
+totalIter = 1 * len(analysisVar) * len(extractNo)
 
 #Set a current interations variable
 currIter = 0
@@ -895,7 +897,8 @@ currIter = 0
 t0 = time.time()
 
 #Loop through trial types
-for tt in range(len(trialList)): 
+for tt in range(len(trialList)):
+# tt = 0    
     
     # #Extract the dataframe for the current trial ID
     # df_currTrial = df_samples.loc[df_samples['trialID'] == trialList[tt],]
@@ -983,7 +986,10 @@ for tt in range(len(trialList)):
                 
         #Loop through the extraction numbers
         for ee in range(len(extractNo)):
-                    
+            
+            #Set current extract number
+            currNo = int(extractNo[ee])
+            
             #Set a dictionary to store the ground truth comparisons for
             #current gait cycle number (RQ2)
             groundTruthDict = {'extractNo': [], 'trialID': [], 'varType': [],
@@ -995,20 +1001,18 @@ for tt in range(len(trialList)):
             
             #Set a dictionary to store findings of comparing different samples
             #of gait cycles for th current gait cycle number (RQ3)
-            compDict = {'extractNo': [], 'trialID': [], 'varType': [],
-                        'rejectH0': [], 'pVal': [],
-                        'analysisVar': [],
-                        # 'Y1': [], 'Y2': [],
-                        'Y1_m': [], 'Y2_m': [],
-                        'meanAbsError': [], 'peakAbsError': [], 'effectSize': []}
+            if currNo <= max(extractNoDual):
+                compDict = {'extractNo': [], 'trialID': [], 'varType': [],
+                            'rejectH0': [], 'pVal': [],
+                            'analysisVar': [],
+                            # 'Y1': [], 'Y2': [],
+                            'Y1_m': [], 'Y2_m': [],
+                            'meanAbsError': [], 'peakAbsError': [], 'effectSize': []}
             
             #Set dictionary to store extracted values in for 0D ANOVA (RQ4)
             anovaDataDict = {'sampleNo': [], 'extractNo': [],
                              'vals': [], 'varType': [], 
                              'speed': []}
-            
-            #Set current extract number
-            currNo = int(extractNo[ee])
             
             # #Extract the dataframe for the current extraction number
             # df_currExtract = df_currTrial.loc[df_currTrial['extractNo'] == currNo,]
@@ -1253,9 +1257,10 @@ for tt in range(len(trialList)):
                             str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
                             trialList[tt]+'.pbz2')
             #Samples comparison
-            savePickleDict(compDict, samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
-                            str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
-                            trialList[tt]+'.pbz2')
+            if currNo <= max(extractNoDual):
+                savePickleDict(compDict, samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                                str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                trialList[tt]+'.pbz2')
             #ANOVA dictionary
             savePickleDict(anovaDataDict, diffCompDir+'\\Fukuchi2017-Running-anovaData-n'+
                             str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
@@ -1280,7 +1285,7 @@ for tt in range(len(trialList)):
                 estRemTime = (avgIterTime * (totalIter - currIter)) / 60 / 60
                 estHours = int(estRemTime)
                 estMins = int(np.round((estRemTime*60) % 60))
-                print('Estimated analysis time remaining: %d hours & %d minutes' % (estHours, estMins))
+                print('Estimated analysis time remaining: %d hours & %d minutes\n' % (estHours, estMins))
 
 # %% ...
 
