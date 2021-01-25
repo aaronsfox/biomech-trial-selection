@@ -1282,7 +1282,7 @@ if analyseSamples:
 else:
     
     #Print message
-    print('Samples already analysed...')    
+    print('Samples already analysed...')
 
 # %% Summarise sequential analysis data
 
@@ -1636,6 +1636,154 @@ sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
 #### Could consider taking absolute of these peak SD sequential values too for
 #### consistency with the 1D variables...
 
+# %% Collate comparisons to 'ground truth' mean (RQ2 cont.)
+
+tt = 0
+vv = 0
+ee = 0
+
+#Loop through extraction numbers
+for ee in range(len(extractNo)):
+    
+    #Set current extraction number
+    currNo = int(extractNo[ee])
+
+    #Load data dictionary for current extraction number
+    groundTruthDict = loadPickleDict(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                                     str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                     trialList[tt]+'.pbz2')
+    
+    #Convert to dataframe.
+    #If first iteration, set as the overall dataframe
+    if ee == 0: 
+        df_groundTruthComp =  pd.DataFrame.from_dict(groundTruthDict)
+    else:
+        #Convert to generic dataframe variable and bind to remaining
+        df =  pd.DataFrame.from_dict(groundTruthDict)
+        df_groundTruthComp = pd.concat([df_groundTruthComp,df])
+        
+#Get summary statistics for error values and effect sizes
+
+#Mean absolute error
+groupedMAE = df_groundTruthComp.groupby(['extractNo','varType'])['meanAbsError'].agg(['mean', 'count', 'std'])
+#Effect size
+effectMAE =  df_groundTruthComp.groupby(['extractNo','varType'])['effectSize'].agg(['mean', 'count', 'std'])
+#Peak absolute error
+groupedPAE = df_groundTruthComp.loc[df_groundTruthComp['varType'] == '1D',].groupby(['extractNo','varType'])['peakAbsError'].agg(['mean', 'count', 'std'])
+
+
+#Loop through data and calculate confidence intervals for errors
+
+#Mean absolute error
+ci95 = []
+#Calculate confidence intervals
+for kk in groupedMAE.index:
+    m, c, s = groupedMAE.loc[kk]
+    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+#Append to data object
+groupedMAE['ci95'] = ci95
+
+#Effect size
+ci95 = []
+#Calculate confidence intervals
+for kk in effectMAE.index:
+    m, c, s = effectMAE.loc[kk]
+    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+#Append to data object
+effectMAE['ci95'] = ci95
+
+#Peak absolute error
+
+#Calculate confidence intervals
+ci95 = []
+for kk in groupedPAE.index:
+    m, c, s = groupedPAE.loc[kk]
+    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+#Append to data object
+groupedPAE['ci95'] = ci95
+
+#Export summary data to file
+groupedMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                  str(nSamples)+'-'+analysisVar[vv]+'-'+
+                  trialList[tt]+'_meanAbsErrorSummary.csv')
+groupedPAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                  str(nSamples)+'-'+analysisVar[vv]+'-'+
+                  trialList[tt]+'_peakAbsErrorSummary.csv')
+effectMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                 str(nSamples)+'-'+analysisVar[vv]+'-'+
+                 trialList[tt]+'_effectSizeErrorSummary.csv')
+
+
+
+##### TODO: process can be repeated for comparable samples analysis (RQ3)
+
+
+
+
+
+
+##### TEST PLOTS...
+
+#Sample boxplot?
+sns.boxplot(x = 'extractNo', y = 'meanAbsError', data = df_groundTruthComp,
+            hue = 'varType')
+
+#Sample pointplot?
+sns.pointplot(x = 'extractNo', y = 'meanAbsError', data = df_groundTruthComp,
+              hue = 'varType', dodge = True, join = False)
+
+
+
+
+
+
+
+#Visualise null hypothesis rejection rate across gait cycles (RQ2)
+
+#### TODO: loop through trial type
+
+#Initialise figure
+fig, ax = plt.subplots(nrows = 2, ncols = 1, figsize = (6,7))
+
+#Plot the expected false positive rate
+ax[0].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
+ax[1].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
+
+#Loop through variables
+for vv in range(len(analysisVar)):
+# for vv in range(0,3):
+
+    #Initialise arrays to store H0 reject rate vs. gait cycle number
+    X = np.zeros((len(extractNo),1))
+    Y_0D = np.zeros((len(extractNo),1))
+    Y_1D = np.zeros((len(extractNo),1))
+    
+    #Loop through extraction number to get the count and H0 rejection rate
+    for ee in range(len(extractNo)):
+        
+        #Set extraction number in array
+        X[ee,0] = extractNo[ee]
+        
+        #Sum the number of times H0 was rejected and add to array
+        #Both 0D and 1D variables here
+        Y_0D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
+                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                                (df_groundTruthComp['varType'] == '0D') &
+                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
+                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
+        Y_1D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
+                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                                (df_groundTruthComp['varType'] == '1D') &
+                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
+                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
+    
+    #Plot data
+    ax[0].plot(X, Y_0D, color = analysisCol[vv], marker = analysisSym[vv],
+                label = analysisLabels[vv])
+    ax[1].plot(X, Y_1D, color = analysisCol[vv], marker = analysisSym[vv],
+                label = analysisLabels[vv])
+
+
 # %% ...
 
 # %% Run ANOVA & post-hoc on sampled data (RQ4 cont.)
@@ -1773,50 +1921,7 @@ for vv in range(len(analysisVar)):
 
 
 
-#Visualise null hypothesis rejection rate across gait cycles (RQ2)
 
-#### TODO: loop through trial type
-
-#Initialise figure
-fig, ax = plt.subplots(nrows = 2, ncols = 1, figsize = (6,7))
-
-#Plot the expected false positive rate
-ax[0].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
-ax[1].axhline(y = 0.05, linewidth = 1, linestyle = '--', color = 'grey')
-
-#Loop through variables
-for vv in range(len(analysisVar)):
-# for vv in range(0,3):
-
-    #Initialise arrays to store H0 reject rate vs. gait cycle number
-    X = np.zeros((len(extractNo),1))
-    Y_0D = np.zeros((len(extractNo),1))
-    Y_1D = np.zeros((len(extractNo),1))
-    
-    #Loop through extraction number to get the count and H0 rejection rate
-    for ee in range(len(extractNo)):
-        
-        #Set extraction number in array
-        X[ee,0] = extractNo[ee]
-        
-        #Sum the number of times H0 was rejected and add to array
-        #Both 0D and 1D variables here
-        Y_0D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
-                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
-                                                (df_groundTruthComp['varType'] == '0D') &
-                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
-                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
-        Y_1D[ee,0] = len(df_groundTruthComp.loc[(df_groundTruthComp['trialID'] == trialList[tt]) &
-                                                (df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
-                                                (df_groundTruthComp['varType'] == '1D') &
-                                                (df_groundTruthComp['extractNo'] == extractNo[ee]) &
-                                                (df_groundTruthComp['rejectH0'] == True),['rejectH0']]) / nSamples
-    
-    #Plot data
-    ax[0].plot(X, Y_0D, color = analysisCol[vv], marker = analysisSym[vv],
-                label = analysisLabels[vv])
-    ax[1].plot(X, Y_1D, color = analysisCol[vv], marker = analysisSym[vv],
-                label = analysisLabels[vv])
 
 
 
