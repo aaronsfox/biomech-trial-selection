@@ -1638,87 +1638,188 @@ sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
 
 # %% Collate comparisons to 'ground truth' mean (RQ2 cont.)
 
-tt = 0
-vv = 0
-ee = 0
+##### TODO: consider how to present statistical comparison results?
 
-#Loop through extraction numbers
-for ee in range(len(extractNo)):
-    
-    #Set current extraction number
-    currNo = int(extractNo[ee])
+#Set a list for collating max error values for reporting purposes
+##### TODO: add 0D comparisons...
+maxMAE_1D = []
+maxPAE_1D = []
+maxEffect_1D = []
 
-    #Load data dictionary for current extraction number
-    groundTruthDict = loadPickleDict(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
-                                     str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
-                                     trialList[tt]+'.pbz2')
-    
-    #Convert to dataframe.
-    #If first iteration, set as the overall dataframe
-    if ee == 0: 
-        df_groundTruthComp =  pd.DataFrame.from_dict(groundTruthDict)
-    else:
-        #Convert to generic dataframe variable and bind to remaining
-        df =  pd.DataFrame.from_dict(groundTruthDict)
-        df_groundTruthComp = pd.concat([df_groundTruthComp,df])
+#Loop through trial types
+for tt in range(len(trialList)):
+
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
+
+        #Loop through extraction numbers
+        for ee in range(len(extractNo)):
+            
+            #Set current extraction number
+            currNo = int(extractNo[ee])
         
-#Get summary statistics for error values and effect sizes
+            #Load data dictionary for current extraction number
+            groundTruthDict = loadPickleDict(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                                             str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                             trialList[tt]+'.pbz2')
+            
+            #Convert to dataframe.
+            #If first iteration, set as the overall dataframe
+            if ee == 0: 
+                df_groundTruthComp =  pd.DataFrame.from_dict(groundTruthDict)
+            else:
+                #Convert to generic dataframe variable and bind to remaining
+                df =  pd.DataFrame.from_dict(groundTruthDict)
+                df_groundTruthComp = pd.concat([df_groundTruthComp,df])
+        
+        #Get summary statistics for error values and effect sizes
+        
+        #Mean absolute error
+        groupedMAE = df_groundTruthComp.groupby(['extractNo','varType'])['meanAbsError'].agg(['mean', 'count', 'std'])
+        #Effect size
+        effectMAE =  df_groundTruthComp.groupby(['extractNo','varType'])['effectSize'].agg(['mean', 'count', 'std'])
+        #Peak absolute error
+        groupedPAE = df_groundTruthComp.loc[df_groundTruthComp['varType'] == '1D',].groupby(['extractNo','varType'])['peakAbsError'].agg(['mean', 'count', 'std'])
+                
+        #Loop through data and calculate confidence intervals for errors
+        
+        #Mean absolute error
+        ci95 = []
+        #Calculate confidence intervals
+        for kk in groupedMAE.index:
+            m, c, s = groupedMAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        groupedMAE['ci95'] = ci95
+        
+        #Effect size
+        ci95 = []
+        #Calculate confidence intervals
+        for kk in effectMAE.index:
+            m, c, s = effectMAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        effectMAE['ci95'] = ci95
+        
+        #Peak absolute error
+        
+        #Calculate confidence intervals
+        ci95 = []
+        for kk in groupedPAE.index:
+            m, c, s = groupedPAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        groupedPAE['ci95'] = ci95
+        
+        #Export summary data to file
+        groupedMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                          str(nSamples)+'-'+analysisVar[vv]+'-'+
+                          trialList[tt]+'_meanAbsErrorSummary.csv')
+        groupedPAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                          str(nSamples)+'-'+analysisVar[vv]+'-'+
+                          trialList[tt]+'_peakAbsErrorSummary.csv')
+        effectMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                         str(nSamples)+'-'+analysisVar[vv]+'-'+
+                         trialList[tt]+'_effectSizeErrorSummary.csv')
+        
+        #Print out summary averages
+        #0D
+        
+        #1D
+        maxMAE_1D.append([np.max(groupedMAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        print(f'Maximum 1D mean absolute error for {analysisVar[vv]} in {trialList[tt]}: {np.round(maxMAE_1D[-1][0],2)}')
+        maxPAE_1D.append([np.max(groupedPAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        print(f'Maximum 1D peak absolute error for {analysisVar[vv]} in {trialList[tt]}: {np.round(maxPAE_1D[-1][0],2)}')
+        maxEffect_1D.append([np.max(np.abs(effectMAE['mean'].to_numpy())),analysisVar[vv],trialList[tt]])
+        print(f'Maximum 1D mean absolute error effect size for {analysisVar[vv]} in {trialList[tt]}: {np.round(maxEffect_1D[-1][0],2)}')
 
-#Mean absolute error
-groupedMAE = df_groundTruthComp.groupby(['extractNo','varType'])['meanAbsError'].agg(['mean', 'count', 'std'])
-#Effect size
-effectMAE =  df_groundTruthComp.groupby(['extractNo','varType'])['effectSize'].agg(['mean', 'count', 'std'])
-#Peak absolute error
-groupedPAE = df_groundTruthComp.loc[df_groundTruthComp['varType'] == '1D',].groupby(['extractNo','varType'])['peakAbsError'].agg(['mean', 'count', 'std'])
 
 
-#Loop through data and calculate confidence intervals for errors
+#### Create a figure for ISB abstract that does all variables combined for mean
+#### and peak error (maybe just peak) - gait cycles X axis, error on Y axis when
+#### compared to the 'global mean' 
 
-#Mean absolute error
-ci95 = []
-#Calculate confidence intervals
-for kk in groupedMAE.index:
-    m, c, s = groupedMAE.loc[kk]
-    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
-#Append to data object
-groupedMAE['ci95'] = ci95
+#Loop through trial types
+for tt in range(len(trialList)):
 
-#Effect size
-ci95 = []
-#Calculate confidence intervals
-for kk in effectMAE.index:
-    m, c, s = effectMAE.loc[kk]
-    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
-#Append to data object
-effectMAE['ci95'] = ci95
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
 
-#Peak absolute error
-
-#Calculate confidence intervals
-ci95 = []
-for kk in groupedPAE.index:
-    m, c, s = groupedPAE.loc[kk]
-    ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
-#Append to data object
-groupedPAE['ci95'] = ci95
-
-#Export summary data to file
-groupedMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
-                  str(nSamples)+'-'+analysisVar[vv]+'-'+
-                  trialList[tt]+'_meanAbsErrorSummary.csv')
-groupedPAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
-                  str(nSamples)+'-'+analysisVar[vv]+'-'+
-                  trialList[tt]+'_peakAbsErrorSummary.csv')
-effectMAE.to_csv(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
-                 str(nSamples)+'-'+analysisVar[vv]+'-'+
-                 trialList[tt]+'_effectSizeErrorSummary.csv')
+        #Loop through extraction numbers
+        for ee in range(len(extractNo)):
+            
+            #Set current extraction number
+            currNo = int(extractNo[ee])
+        
+            #Load data dictionary for current extraction number
+            groundTruthDict = loadPickleDict(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                                             str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                             trialList[tt]+'.pbz2')
+            
+            #Convert to dataframe.
+            #If first iteration, set as the overall dataframe
+            if ee == 0 and tt == 0 and vv == 0: 
+                df_groundTruthComp =  pd.DataFrame.from_dict(groundTruthDict)
+            else:
+                #Convert to generic dataframe variable and bind to remaining
+                df =  pd.DataFrame.from_dict(groundTruthDict)
+                df_groundTruthComp = pd.concat([df_groundTruthComp,df])
 
 
+#Set plot parameters
+from matplotlib import rcParams
+# rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = 'Arial'
+rcParams['font.weight'] = 'bold'
+rcParams['axes.labelsize'] = 14
+rcParams['axes.titlesize'] = 16
+rcParams['axes.linewidth'] = 1.5
+rcParams['axes.labelweight'] = 'bold'
+rcParams['legend.fontsize'] = 12
+rcParams['legend.title_fontsize'] = 12
+rcParams['xtick.major.width'] = 1.5
+rcParams['ytick.major.width'] = 1.5
+rcParams['legend.framealpha'] = 0.0
+rcParams['savefig.dpi'] = 300
+rcParams['savefig.format'] = 'pdf'
 
-##### TODO: process can be repeated for comparable samples analysis (RQ3)
+#Set figure
+fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (3.5*3,2*3))
 
+#Create plot
+h = sns.pointplot(x = 'extractNo', y = 'peakAbsError', hue = 'trialID',
+                  data = df_groundTruthComp.loc[df_groundTruthComp['varType'] == '1D',],
+                  dodge = True, markers = 's', scale = 0.7, errwidth = 1.5,
+                  palette = 'colorblind', ax = ax)
+              
+#Axes settings
+#Y-limits
+ax.set_ylim([0,1.2])
+#X-tick labels
+ax.set_xticks([0,5,10,15,20,25])
+ax.set_xlim([0-1,25+1])
+#Y-label
+ax.set_ylabel('Peak Absolute Error (\u00b0)')
+#X-label
+ax.set_xlabel('No. of Gait Cycles')
 
+#Legend Settings
+#Labels
+h, l = ax.get_legend_handles_labels()
+l = ['2.5 m\u00b7s$^{-1}$', '3.5 m\u00b7s$^{-1}$', '4.5 m\u00b7s$^{-1}$']
+plt.legend(h,l)
+#Title
+ax.get_legend().set_title('Running Speed')
 
+#Layout
+plt.tight_layout()
+
+#Save this to ISB abstract directory for now
+plt.savefig('C:\\Users\\aafox\\OneDrive - Deakin University\\RESEARCH\\Conferences\\2021\\ISB 2021\\Abstract\\groundTruthComp_peakAbsErr.png',
+            dpi = 300, format = 'png')
+
+#Close plot
+plt.close()
 
 
 
@@ -1785,6 +1886,184 @@ for vv in range(len(analysisVar)):
 
 
 # %% ...
+
+# %% Collate sample comparisons (RQ3 cont.)
+
+##### TODO: consider how to present statistical comparison results?
+
+#Set a list for collating max error values for reporting purposes
+##### TODO: add 0D comparisons...
+maxMAE_1D = []
+maxPAE_1D = []
+maxEffect_1D = []
+minMAE_1D = []
+minPAE_1D = []
+minEffect_1D = []
+
+#Loop through trial types
+for tt in range(len(trialList)):
+
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
+
+        #Loop through extraction numbers
+        for ee in range(len(extractNoDual)):
+            
+            #Set current extraction number
+            currNo = int(extractNo[ee])
+        
+            #Load data dictionary for current extraction number
+            compDict = loadPickleDict(samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                                      str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                      trialList[tt]+'.pbz2')
+            
+            #Convert to dataframe.
+            #If first iteration, set as the overall dataframe
+            if ee == 0: 
+                df_samplesComp = pd.DataFrame.from_dict(compDict)
+            else:
+                #Convert to generic dataframe variable and bind to remaining
+                df =  pd.DataFrame.from_dict(compDict)
+                df_samplesComp = pd.concat([df_samplesComp,df])
+        
+        #Get summary statistics for error values and effect sizes
+        
+        #Mean absolute error
+        groupedMAE = df_samplesComp.groupby(['extractNo','varType'])['meanAbsError'].agg(['mean', 'count', 'std'])
+        #Effect size
+        effectMAE =  df_samplesComp.groupby(['extractNo','varType'])['effectSize'].agg(['mean', 'count', 'std'])
+        #Peak absolute error
+        groupedPAE = df_samplesComp.loc[df_samplesComp['varType'] == '1D',].groupby(['extractNo','varType'])['peakAbsError'].agg(['mean', 'count', 'std'])
+                
+        #Loop through data and calculate confidence intervals for errors
+        
+        #Mean absolute error
+        ci95 = []
+        #Calculate confidence intervals
+        for kk in groupedMAE.index:
+            m, c, s = groupedMAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        groupedMAE['ci95'] = ci95
+        
+        #Effect size
+        ci95 = []
+        #Calculate confidence intervals
+        for kk in effectMAE.index:
+            m, c, s = effectMAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        effectMAE['ci95'] = ci95
+        
+        #Peak absolute error
+        
+        #Calculate confidence intervals
+        ci95 = []
+        for kk in groupedPAE.index:
+            m, c, s = groupedPAE.loc[kk]
+            ci95.append([m - 1.96 * s / np.sqrt(c), m + 1.96 * s / np.sqrt(c)])
+        #Append to data object
+        groupedPAE['ci95'] = ci95
+        
+        #Export summary data to file
+        groupedMAE.to_csv(samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                          str(nSamples)+'-'+analysisVar[vv]+'-'+
+                          trialList[tt]+'_meanAbsErrorSummary.csv')
+        groupedPAE.to_csv(samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                          str(nSamples)+'-'+analysisVar[vv]+'-'+
+                          trialList[tt]+'_peakAbsErrorSummary.csv')
+        effectMAE.to_csv(samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                         str(nSamples)+'-'+analysisVar[vv]+'-'+
+                         trialList[tt]+'_effectSizeErrorSummary.csv')
+        
+        #Print out summary averages
+        #0D
+        
+        #1D
+        maxMAE_1D.append([np.max(groupedMAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        minMAE_1D.append([np.min(groupedMAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        print(f'Error range for 1D mean absolute error for {analysisVar[vv]} in {trialList[tt]}: {np.round(minMAE_1D[-1][0],2)} - {np.round(maxMAE_1D[-1][0],2)}')
+        maxPAE_1D.append([np.max(groupedPAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        minPAE_1D.append([np.min(groupedPAE['mean'].to_numpy()),analysisVar[vv],trialList[tt]])
+        print(f'Error range for 1D peak absolute error for {analysisVar[vv]} in {trialList[tt]}: {np.round(minPAE_1D[-1][0],2)} - {np.round(maxPAE_1D[-1][0],2)}')
+        maxEffect_1D.append([np.max(np.abs(effectMAE['mean'].to_numpy())),analysisVar[vv],trialList[tt]])
+        minEffect_1D.append([np.min(np.abs(effectMAE['mean'].to_numpy())),analysisVar[vv],trialList[tt]])
+        print(f'Error range for 1D mean absolute error effect size for {analysisVar[vv]} in {trialList[tt]}: {np.round(minEffect_1D[-1][0],2)} - {np.round(maxEffect_1D[-1][0],2)}')
+
+
+
+
+#### Create a figure for ISB abstract that does all variables combined for mean
+#### and peak error (maybe just peak) - gait cycles X axis, error on Y axis when
+#### comparing the two samples
+
+#Loop through trial types
+for tt in range(len(trialList)):
+
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
+
+        #Loop through extraction numbers
+        for ee in range(len(extractNoDual)):
+            
+            #Set current extraction number
+            currNo = int(extractNoDual[ee])
+        
+            #Load data dictionary for current extraction number
+            compDict = loadPickleDict(samplesCompDir+'\\Fukuchi2017-Running-samplesComp-n'+
+                                      str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                      trialList[tt]+'.pbz2')
+            
+            #Convert to dataframe.
+            #If first iteration, set as the overall dataframe
+            if ee == 0 and tt == 0 and vv == 0: 
+                df_samplesComp = pd.DataFrame.from_dict(compDict)
+            else:
+                #Convert to generic dataframe variable and bind to remaining
+                df =  pd.DataFrame.from_dict(compDict)
+                df_samplesComp = pd.concat([df_samplesComp,df])
+
+
+
+#Set figure
+fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (3.5*3,2*3))
+
+#Create plot
+h = sns.pointplot(x = 'extractNo', y = 'peakAbsError', hue = 'trialID',
+                  data = df_samplesComp.loc[df_samplesComp['varType'] == '1D',],
+                  dodge = True, markers = 's', scale = 0.7, errwidth = 1.5,
+                  palette = 'colorblind', ax = ax)
+              
+#Axes settings
+#Y-limits
+ax.set_ylim([0,1.7])
+#X-tick labels
+ax.set_xticks([0,5,10])
+ax.set_xlim([0-1,10+1])
+#Y-label
+ax.set_ylabel('Peak Absolute Difference (\u00b0)')
+#X-label
+ax.set_xlabel('No. of Gait Cycles')
+
+#Legend Settings
+#Labels
+h, l = ax.get_legend_handles_labels()
+l = ['2.5 m\u00b7s$^{-1}$', '3.5 m\u00b7s$^{-1}$', '4.5 m\u00b7s$^{-1}$']
+plt.legend(h,l)
+#Title
+ax.get_legend().set_title('Running Speed')
+
+#Layout
+plt.tight_layout()
+
+#Save this to ISB abstract directory for now
+plt.savefig('C:\\Users\\aafox\\OneDrive - Deakin University\\RESEARCH\\Conferences\\2021\\ISB 2021\\Abstract\\samplesComp_peakAbsErr.png',
+            dpi = 300, format = 'png')
+
+#Close figure
+plt.close()
+
+
 
 # %% Run ANOVA & post-hoc on sampled data (RQ4 cont.)
 
