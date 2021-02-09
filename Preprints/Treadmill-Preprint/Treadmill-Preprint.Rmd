@@ -14,7 +14,7 @@ address:
   - code: Centre for Sport Research
     address: Centre for Sport Research, School of Exercise and Nutrition Sciences, Deakin University, Geelong, Australia
   - code: UNSW
-    address: Department, Street, City, State, Zip
+    address: School of Engineering and Information Technology, University of New South Wales, Canberra, Australia
 footnote:
   - code: 1
     text: "Corresponding Author"
@@ -53,6 +53,17 @@ knitr::opts_chunk$set(echo = FALSE)
 - There is a need to understand the effect of gait cycle number on biomechanical outcome variables from a time cost perspective. We can somewhat easily collect a significant number of gait cycles within a laboratory environment in a treadmill-based test. Having participants settle into a steady state through continuous running over X time period is in fact recommended (?). However, there are potential time savings to be made within analysis protocols should we need to process fewer gait cycles (i.e. time within IK-like processes, time with data cleaning etc.). On the flip side, should only a small number of gait cycles result in 'unstable' biomechanical variables that aren't necessarily representative of an individuals running biomechanics, this would suggest a need to collect and process more gait cycles in calculating a representative mean for the individual... 
 
 
+
+Oliveira and Pirscoveanu[@Oliveira2021] recently examined the typical number of gait cycles using in running biomechanics studies. On average, studies used 12 cycles per runner to describe running biomechanics, while Very few (5 out of 56 studies) used more than 10 cycles [@Oliveira2021]. 
+
+
+Oliveira and Pirscoveanu[@Oliveira2021] subsequently performed a study investigating the impact of sample size and the number of gait cycles used on biomechanical outcomes
+
+***TODO: outline major findings*** 
+
+The findings from their study are, however, specific to overground running and the specific set of variables analysed (i.e. foot contact time, loading rate, peak vertical force, peak braking force, running speed and foot contact angle). Treadmill-based studies of running are common across the biomechanical literature ***ADD REFS***. It is plausible that treadmill running may incur a different pattern of 'stability' with respect to the number of gait cycles needed for analyses, resulting in variable recommendations to those presented by Oliveira and Pirscoveanu[@Oliveira2021]. Further, Oliveira and Pirscoveanu[@Oliveira2021] did not examine lower limb kinematic variables commonly used in gait biomechanics studies. These kinematic variables are presented as both 'zero-dimensional' (0D; e.g. peak values) and 'one-dimensional' (1D; e.g. time-normalised kinematic waveform) variables across biomechanical studies ***ADD REFS***. Additional analyses of these common kinematic variables in both their 0D and 1D forms may, again, yield additional information with respect to the number of gait cycles required in biomechanical research. 
+
+
 We sought to understand the impact of the number of gait cycles selected, along with where these are selected from during a continuous bout of treadmill running, on biomechanical data and ... how this may influence conclusions...
 
 First, we used sequential analysis to understand the stability of biomechanical variables as gait cycle number is increased.
@@ -76,8 +87,11 @@ We processed the experimental data from Fukuchi et al.[@Fukuchi2017] using OpenS
 
 
 
-- 0D and 1D variables...
+- 0D and 1D variables...outline how these are calculated and what they are...
 - Data from right limb
+
+
+We used sequential analysis to determine the minimum number of gait cycles required to reach a 'stable' representative mean within the number of gait cycles extracted from the 30-second period of treadmill running. Sequential analysis was individually applied across the different running speeds and kinematic variables (both 0D and 1D variants) examined. We used multiple bandwidths to determine varying degrees of 'stability'. This included ± 0.25 of one standard deviation from the target mean, in line with existing studies applying sequential analysis to biomechanical data ***ADD REFS***; but expanded this to ± 0.50, 0.75 and 1.00 of one standard deviation from the target mean. This additional analysis can provide various thresholds for which researchers can choose to apply to their own studies. For 0D variables, the sequential discrete data points across all gait cycles from each participant were averaged to create the target stability, from which the various standard deviation bandwidths were applied to. To be considered 'stable,' a 0D variable had to fall and remain within the bandwidth for the rest of the gait cycles. For 1D variables, the same technique was applied to each time-normalised point along the continuous kinematic waveform. To be considered 'stable,' a all points along the 1D kinematic waveform had to fall and remain within the bandwidth for the rest of the gait cycles. The number of gait cycles where stability was reached across the various running speeds, kinematic variables and stability thresholds were extracted and descriptive statistics (i.e. mean, median, inter-quartile ranges, total range) were calculated. The proportion of participants reaching stability at each gait cycle number was also calculated.
 
 
 # Results
