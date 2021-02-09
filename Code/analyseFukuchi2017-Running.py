@@ -502,7 +502,6 @@ analysisCol = sns.color_palette('colorblind', len(analysisVar))
 analysisSym = ['s', 'o', 'd', '^', 'v']
 
 #Set trial labels for figures
-#### TODO: formatting
 trialLabels = ['2.5 m\u00b7s$^{-1}$', '3.5 m\u00b7s$^{-1}$', '4.5 m\u00b7s$^{-1}$']
 
 # %% Collate processed data
@@ -1317,9 +1316,6 @@ else:
 #however we can also investigate other values to provide an indication of 'stability'
 #at different levels
 
-##### TODO: calculate proportion (%) of participants that are 'stable' at each
-##### gait cycle number across the different variables and visualise...
-
 #Set variable for stability levels
 stabilityLevels = [0.25, 0.50, 0.75, 1.00]
 
@@ -1600,6 +1596,78 @@ else:
 #Convert to dataframe
 df_seqSummary = pd.DataFrame.from_dict(seqSummaryDict)
 
+#Calculate proportion (%) of participants that are 'stable' at each gait cycle
+#number across the different variables
+
+#Set dictionary to store data
+seqPropDict = {'trialID': [], 'analysisVar': [], 'varType': [],
+               'stabilityThreshold': [], 'nGC': [], 'propStable': []}
+
+if seqAnalysis:
+
+    #Loop through the trial types
+    for tt in range(len(trialList)):
+        
+        #Loop through analysis variables
+        for vv in range(len(analysisVar)):
+        
+            #Loop through the stability levels
+            for ss in range(len(stabilityLevels)):
+            
+                #Extract the current dataset of interest
+                #OD
+                df_currSeq_0D = df_seqResults.loc[(df_seqResults['trialID'] == trialList[tt]) &
+                                                  (df_seqResults['analysisVar'] == analysisVar[vv]) &
+                                                  (df_seqResults['stabilityThreshold'] == stabilityLevels[ss]) &
+                                                  (df_seqResults['varType'] == '0D'),]
+                #1D
+                df_currSeq_1D = df_seqResults.loc[(df_seqResults['trialID'] == trialList[tt]) &
+                                                  (df_seqResults['analysisVar'] == analysisVar[vv]) &
+                                                  (df_seqResults['stabilityThreshold'] == stabilityLevels[ss]) &
+                                                  (df_seqResults['varType'] == '1D'),]
+                
+                #Create arrays to work through a sequence of values up the max of
+                #stability gait cycle numbers for this current iteration
+                sequence0D = np.linspace(2,max(df_currSeq_0D['stabilityGC']),max(df_currSeq_0D['stabilityGC'])-1)
+                sequence1D = np.linspace(2,max(df_currSeq_1D['stabilityGC']),max(df_currSeq_1D['stabilityGC'])-1)
+                prop0D = np.zeros(len(sequence0D))
+                prop1D = np.zeros(len(sequence1D))
+                
+                #Loop through the sequences and calculate the proportions at each 
+                #gait cycle number
+                #0D
+                for pp in range(len(sequence0D)):
+                    #Extract number of participants meeting threshold at this stage
+                    #Append this to the created dictionary, along with ID data
+                    seqPropDict['propStable'].append(len(np.where(df_currSeq_0D['stabilityGC'].values <= sequence0D[pp])[0].flatten()) / len(subList))
+                    seqPropDict['nGC'].append(int(sequence0D[pp]))
+                    seqPropDict['stabilityThreshold'].append(stabilityLevels[ss])
+                    seqPropDict['varType'].append('0D')
+                    seqPropDict['analysisVar'].append(analysisVar[vv])
+                    seqPropDict['trialID'].append(trialList[tt])
+                #1D
+                for pp in range(len(sequence1D)):
+                    #Extract number of participants meeting threshold at this stage
+                    #Append this to the created array
+                    seqPropDict['propStable'].append(len(np.where(df_currSeq_1D['stabilityGC'].values <= sequence1D[pp])[0].flatten()) / len(subList))
+                    seqPropDict['nGC'].append(int(sequence1D[pp]))
+                    seqPropDict['stabilityThreshold'].append(stabilityLevels[ss])
+                    seqPropDict['varType'].append('1D')
+                    seqPropDict['analysisVar'].append(analysisVar[vv])
+                    seqPropDict['trialID'].append(trialList[tt])
+                    
+    #Stash the compiled sequential proportion analysis for speedier use later
+    savePickleDict(seqPropDict, seqAnalysisDir+'\\Fukuchi2017-Running-seqProp.pbz2')
+                     
+else:
+    
+    #Load existing dataset
+    seqPropDict = loadPickleDict(seqAnalysisDir+'\\Fukuchi2017-Running-seqProp.pbz2')
+
+#Convert proportion dictionary to dataframe
+df_seqProp = pd.DataFrame.from_dict(seqPropDict)
+
+#Check whether to export the sequential analysis summary
 if seqAnalysis:
 
     #Export sequential analysis results to file
@@ -1613,7 +1681,8 @@ if seqAnalysis:
 #Split this by the hue for 0D and 1D variables
 
 #Initialise figure
-fig, ax = plt.subplots(nrows = 3, ncols = 4, figsize = (10,8))
+fig, ax = plt.subplots(nrows = len(trialList), ncols = len(stabilityLevels),
+                       figsize = (10,8))
 
 #Loop through trials
 for tt in range(len(trialList)):
@@ -1691,82 +1760,386 @@ for tt in range(len(trialList)):
         #Tight layout
         plt.tight_layout()
 
+#Replicate the line plot presented in Oliveira & Pirscoveanu (2021) displaying
+#the percentage of participants achieving stability across number of gait cycles
+#Suplot this so that rows represent running speeds and columns represent 0D and 1D
+#variables. The different kinematic variables will be on the x-axis and the % of
+#participants achieving stability on the y-axis
 
-##### TODO: sample plots for sequantial analysis data...
+#Set variable types
+varTypes = ['0D', '1D'] ##### theoretically this could go earlier for looping
 
-#Sample violin plot of sequential analysis for number of gait cycles
-fig, ax = plt.subplots(nrows = len(stabilityLevels), ncols = 1, figsize = (9,8))
+#Set colour palette
+colourPal = sns.color_palette('colorblind')
 
-#Plot violin plot for first variable
-#Y-axis represents number of gait cycles, X-axis represents trial type
-#Both 0D and 1D variables are plotted
+#Identify max for all sequences
+maxSeqGC = max(df_seqProp['nGC'])
 
-#For a single variable
-
-# for ss in range(len(stabilityLevels)):
-
-#     sns.violinplot(data = df_seqResults.loc[(df_seqResults['analysisVar'] == analysisVar[0]) &
-#                                             (df_seqResults['stabilityThreshold'] == stabilityLevels[ss])],
-#                    x = 'trialID', y = 'stabilityGC', hue = 'varType',
-#                    split = True, inner = None,
-#                    palette = 'colorblind', linewidth = 0,
-#                    ax = ax[ss])
-
-#For a single trial type
-
-#### Probably better...
-
+#Loop through stability thresholds
 for ss in range(len(stabilityLevels)):
 
-    sns.violinplot(data = df_seqResults.loc[(df_seqResults['trialID'] == trialList[0]) &
-                                            (df_seqResults['stabilityThreshold'] == stabilityLevels[ss])],
-                    x = 'analysisVar', y = 'stabilityGC', hue = 'varType',
-                    split = True, inner = None,
-                    palette = 'colorblind', linewidth = 0,
-                    ax = ax[ss])
+    #Initialise figure
+    fig, ax = plt.subplots(nrows = len(trialList), ncols = len(varTypes),
+                           figsize = (10,8))
     
+    #Loop through trial list
+    for tt in range(len(trialList)):
+        
+        #Loop through variable types
+        for kk in range(len(varTypes)):
+            
+            #Loop through analysis variables
+            for vv in range(len(analysisVar)):
+            
+                #Extract the current sequntial analysis dataset
+                df_currSeq = df_seqProp.loc[(df_seqProp['analysisVar'] == analysisVar[vv]) &
+                                            (df_seqProp['stabilityThreshold'] == stabilityLevels[ss]) &
+                                            (df_seqProp['varType'] == varTypes[kk]) &
+                                            (df_seqProp['trialID'] == trialList[tt]),]
+                
+                #Extract variables for line plot
+                X = df_currSeq['nGC'].to_numpy()
+                Y = df_currSeq['propStable'].to_numpy() * 100
+                
+                #Plot line
+                ax[tt,kk].plot(X, Y, color = colourPal[vv],
+                               marker = 'o', markersize = 3,
+                               label = analysisLabels[vv])
+                
+            #Set axes paremeters
+            
+            #Set y-label and ticks
+            if kk == 0:
+                #Set label
+                ax[tt,kk].set_ylabel('% Stable Participants')
+                #Set y-limits
+                ax[tt,kk].set_ylim([-5,105])
+                #Set ticks
+                ax[tt,kk].set_yticks([0,25,50,75,100])
+                ax[tt,ss].yaxis.set_ticklabels([0,25,50,75,100])
+            else:
+                #Remove label
+                ax[tt,kk].set_ylabel('')
+                #Set y-limits
+                ax[tt,kk].set_ylim([-5,105])
+                #Set ticks but remove labels
+                ax[tt,kk].set_yticks([0,25,50,75,100])
+                ax[tt,kk].yaxis.set_ticklabels([])
+            
+            #Adjust x-axes labels
+            if tt == len(trialList)-1:
+                #Set x-limits
+                ax[tt,kk].set_xlim([0,maxSeqGC+1])
+                #Set x-ticks
+                ax[tt,kk].set_xticks([2,10,20,30,40])
+                #Remove x-ticks
+                ax[tt,kk].xaxis.set_ticklabels([2,10,20,30,40])
+                #Set x label
+                ax[tt,kk].set_xlabel('No. of Gait Cycles to Reach Stability')
+            else:
+                #Set x-limits
+                ax[tt,kk].set_xlim([0,maxSeqGC+1])
+                #Set x-ticks
+                ax[tt,kk].set_xticks([2,10,20,30,40])
+                #Remove x-ticks
+                ax[tt,kk].xaxis.set_ticklabels([])
+                #remove x-label
+                ax[tt,kk].set_xlabel('')
+                
+            #Set legend
+            if tt == len(trialList)-1 and kk == len(varTypes)-1:
+                ax[tt,kk].legend()
+            
+            #Set title
+            ax[tt,kk].set_title(f'{trialLabels[tt]} / {varTypes[kk]} Variables')
+            
+    #Tight layout
+    plt.tight_layout()
     
-#### TODO: pretty-up figures...export dataframe to for markdown use...
-
-#Sample box plot of data for knee angle
-
-#####
-#####
-##### TODO: FIX UP!
-##### A dot plot with 95% CI's and outliers might be more appropriate?
-#####
-#####
-
-#Initialise figure
-fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (8,3.5))
-
-#Plot the 0.25 SD bandwidth
-##### TODO: add annotation?
-ax.axhline(y = 0.25, linewidth = 1, linestyle = '--', color = 'grey')
-ax.axhline(y = -0.25, linewidth = 1, linestyle = '--', color = 'grey')
-
-#Extract current trial and analysis variable dataframe
-df_currSeq = df_seqAnalysis.loc[(df_seqAnalysis['trialID'] == trialList[tt]) &
-                                (df_seqAnalysis['analysisVar'] == analysisVar[vv]),]
-
-#Plot boxplot with Seaborn
-sns.boxplot(data = df_currSeq, x = 'nGC', y = 'seqVal',
-            whis = [0,100], palette = 'colorblind', hue = 'varType',
-            ax = ax)
-
-#### Boxplots demonstrate the number of gait cycles for *EVERYONE* to get under
-#### the 0.25 SD threshold for X consecutive cycles --- but this will vary from
-#### person to person...
-####
-#### Also consider the appropriateness of a 0.25 SD threshold with the absolute
-#### maximum value here --- it could be quite sensitive and may be valid to calculate
-#### the number of cycles fro variable thresholds...
-####
-#### Still takes a long time for peak values to come under the 0.25 SD threshold
-#### Could consider taking absolute of these peak SD sequential values too for
-#### consistency with the 1D variables...
+    ##### Save figures...
 
 # %% Collate comparisons to 'ground truth' mean (RQ2 cont.)
+
+#Load the existing ground truth comparison dictionaries and convert to dataframe format
+
+#Loop through trial types
+for tt in range(len(trialList)):
+
+    #Loop through analysis variables
+    for vv in range(len(analysisVar)):
+
+        #Loop through extraction numbers
+        for ee in range(len(extractNo)):
+            
+            #Set current extraction number
+            currNo = int(extractNo[ee])
+        
+            #Load data dictionary for current extraction number
+            groundTruthDict = loadPickleDict(truthCompDir+'\\Fukuchi2017-Running-groundTruthComp-n'+
+                                             str(nSamples)+'-gc'+str(currNo)+'-'+analysisVar[vv]+'-'+
+                                             trialList[tt]+'.pbz2')
+            
+            #Convert to dataframe.
+            #If first iteration, set as the overall dataframe
+            if tt == 0 and vv == 0 and ee == 0: 
+                df_groundTruthComp =  pd.DataFrame.from_dict(groundTruthDict)
+            else:
+                #Convert to generic dataframe variable and bind to remaining
+                df =  pd.DataFrame.from_dict(groundTruthDict)
+                df_groundTruthComp = pd.concat([df_groundTruthComp,df])
+                
+# %% Visualise ground truth comparisons and effect magnitudes
+
+##### TODO: visualise the *ACTUAL* data in some way rather than just errors?
+
+##### Heat map for error compared to mean...?
+
+#0D
+
+#Display mean absolute errors for 0D variables compared to ground truth as boxplots
+
+#Loop through trials
+for tt in range(len(trialList)):
+
+    #Set up figure
+    fig, ax = plt.subplots(nrows = 3, ncols = 2,
+                           figsize = (10,8))
+    
+    #Set variable for axes to plot on
+    whichAx = [[0,0], [0,1],
+               [1,0], [1,1],
+               [2,0], [2,1]]
+    
+    #Loop through variables to plot
+    for vv in range(len(analysisVar)):
+        
+        #Extract current variable data for 0D variable
+        df_currData = df_groundTruthComp.loc[(df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                             (df_groundTruthComp['trialID'] == trialList[tt]) &
+                                             (df_groundTruthComp['varType'] == '0D'),
+                                             ['extractNo','trialID','analysisVar','meanAbsError','effectSize']]
+        
+        #Plot on current axes
+        sns.boxplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
+                    whis = [0,100], palette = ['k'], width = 0.75,
+                    ax = ax[whichAx[vv][0],whichAx[vv][1]])
+
+        #Adjust x-axes labels
+        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+            #Set label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
+        else:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+            #Remove x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
+            #Remove label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
+            
+        #Set y-label
+        if whichAx[vv][1] == 0:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Absolute Error (\u00b0)')
+        else:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
+        
+        #Alter the faces and outlines of bars
+        #Loop through boxes and fix colours
+        for ii in range(len(ax[whichAx[vv][0],whichAx[vv][1]].artists)):
+        
+            #Get the current artist
+            artist = ax[whichAx[vv][0],whichAx[vv][1]].artists[ii]
+            
+            #Set the linecolor on the artist to the facecolor, and set the facecolor to None
+            col = artist.get_facecolor()
+            artist.set_edgecolor(col)
+            artist.set_facecolor('None')
+            
+            #Each box has 6 associated Line2D objects (to make the whiskers, fliers, etc.)
+            #Loop over them here, and use the same colour as above
+            #The first two relate to the whisker lines, so we set these to dashes
+            for jj in range(ii*6,ii*6+6):
+                line = ax[whichAx[vv][0],whichAx[vv][1]].lines[jj]
+                line.set_color(col)
+                line.set_mfc(col)
+                line.set_mec(col)
+                if jj < ii*6 + 2:
+                    line.set_linestyle('--')
+                    
+        #Set title
+        ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'Peak {analysisLabels[vv]} at {trialLabels[tt]}')
+            
+    #Set final axis to invisible
+    ax[2,1].set_visible(False)
+    
+    #Tight layout
+    plt.tight_layout()
+    
+    ##### TODO: save figures
+    
+    ##### TODO: should tabulate these in some way for trial to trial comparison
+    
+#1D
+
+#Display peak absolute errors for 1D variables compared to ground truth as boxplots
+
+#Loop through trials
+for tt in range(len(trialList)):
+
+    #Set up figure
+    fig, ax = plt.subplots(nrows = 3, ncols = 2,
+                           figsize = (10,8))
+    
+    #Set variable for axes to plot on
+    whichAx = [[0,0], [0,1],
+               [1,0], [1,1],
+               [2,0], [2,1]]
+    
+    #Loop through variables to plot
+    for vv in range(len(analysisVar)):
+        
+        #Extract current variable data for 0D variable
+        df_currData = df_groundTruthComp.loc[(df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                             (df_groundTruthComp['trialID'] == trialList[tt]) &
+                                             (df_groundTruthComp['varType'] == '1D'),
+                                             ['extractNo','trialID','analysisVar','peakAbsError','effectSize']]
+        
+        #Plot on current axes
+        sns.boxplot(data = df_currData, x = 'extractNo', y = 'peakAbsError',
+                    whis = [0,100], palette = ['k'], width = 0.75,
+                    ax = ax[whichAx[vv][0],whichAx[vv][1]])
+
+        #Adjust x-axes labels
+        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+            #Set label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
+        else:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+            #Remove x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
+            #Remove label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
+            
+        #Set y-label
+        if whichAx[vv][1] == 0:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Peak Absolute Error (\u00b0)')
+        else:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
+        
+        #Alter the faces and outlines of bars
+        #Loop through boxes and fix colours
+        for ii in range(len(ax[whichAx[vv][0],whichAx[vv][1]].artists)):
+        
+            #Get the current artist
+            artist = ax[whichAx[vv][0],whichAx[vv][1]].artists[ii]
+            
+            #Set the linecolor on the artist to the facecolor, and set the facecolor to None
+            col = artist.get_facecolor()
+            artist.set_edgecolor(col)
+            artist.set_facecolor('None')
+            
+            #Each box has 6 associated Line2D objects (to make the whiskers, fliers, etc.)
+            #Loop over them here, and use the same colour as above
+            #The first two relate to the whisker lines, so we set these to dashes
+            for jj in range(ii*6,ii*6+6):
+                line = ax[whichAx[vv][0],whichAx[vv][1]].lines[jj]
+                line.set_color(col)
+                line.set_mfc(col)
+                line.set_mec(col)
+                if jj < ii*6 + 2:
+                    line.set_linestyle('--')
+                    
+        #Set title
+        ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'1D {analysisLabels[vv]} at {trialLabels[tt]}')
+            
+    #Set final axis to invisible
+    ax[2,1].set_visible(False)
+    
+    #Tight layout
+    plt.tight_layout()
+    
+    ##### TODO: save figures
+    
+    ##### TODO: should tabulate these in some way for trial to trial comparison
+    
+
+
+##### TODO: can probably repeat the above for 1D peak absolute error
+
+
+##### TODO: the below starting sample is probably more relevant to the comparison
+##### within trials across different gait cycles, as it can't be separated across no.'s
+
+
+#1D
+
+#First, plot the ground truth means as time-normalised kinematic data
+
+#Loop through trials
+for tt in range(len(trialList)):
+    
+    #Set up figure
+    fig, ax = plt.subplots(nrows = 3, ncols = 2,
+                           figsize = (10,8))
+    
+    #Set variable for axes to plot on
+    whichAx = [[0,0], [0,1],
+               [1,0], [1,1],
+               [2,0], [2,1]]
+    
+    #Loop through variables to plot
+    for vv in range(len(analysisVar)):
+        
+        #Set array to store mean
+        groundTruth_1D = np.zeros((len(subList),101))
+        
+        #Loop through participants to calculate group mean
+        for ii in range(len(subList)):
+            
+            #Get the number of total right foot gait cycles for current participant
+            #Get the index corresponding to the current participant and trial type in data dictionary
+            subInd = [pp for pp, bb in enumerate(dataDict['subID']) if bb == subList[ii]]
+            trialInd = [kk for kk, bb in enumerate(dataDict['trialID']) if bb == trialList[tt]]
+            currInd = list(set(subInd) & set(trialInd))[0]
+            
+            #Get the number of right foot strike indices
+            nRFS = len(dataDict['rightFS'][currInd])
+            
+            #Extract participants normalised data for the current trial and variable
+            normDataAll = normDataDict[trialList[tt]][analysisVar[vv]][ii]
+
+            #Calculate the mean of the current subjects normalised data
+            #Store in the current ground truths array for SPM1D analysis
+            #Also calculate the mean of the peaks here and store in 0D array
+            groundTruth_1D[ii,:] = np.mean(normDataAll, axis = 0)
+            
+        #Plot data
+        ax[whichAx[vv][0],whichAx[vv][1]].plot(np.linspace(0,100,101), 
+                                               np.mean(groundTruth_1D, axis = 0),
+                                               color = 'k', linewidth = 1.5)
+        
+        
+        
+        
+        
+
+# %% isb analysis
 
 ##### TODO: consider how to present statistical comparison results?
 
