@@ -63,12 +63,14 @@ Oliveira and Pirscoveanu[@Oliveira2021] subsequently performed a study investiga
 
 The findings from their study are, however, specific to overground running and the specific set of variables analysed (i.e. foot contact time, loading rate, peak vertical force, peak braking force, running speed and foot contact angle). Treadmill-based studies of running are common across the biomechanical literature ***ADD REFS***. It is plausible that treadmill running may incur a different pattern of 'stability' with respect to the number of gait cycles needed for analyses, resulting in variable recommendations to those presented by Oliveira and Pirscoveanu[@Oliveira2021]. Further, Oliveira and Pirscoveanu[@Oliveira2021] did not examine lower limb kinematic variables commonly used in gait biomechanics studies. These kinematic variables are presented as both 'zero-dimensional' (0D; e.g. peak values) and 'one-dimensional' (1D; e.g. time-normalised kinematic waveform) variables across biomechanical studies ***ADD REFS***. Additional analyses of these common kinematic variables in both their 0D and 1D forms may, again, yield additional information with respect to the number of gait cycles required in biomechanical research. 
 
+Another limitation to consider is the analysis focused on statistical significance...not bounds around error measurement?
+
 
 We sought to understand the impact of the number of gait cycles selected, along with where these are selected from during a continuous bout of treadmill running, on biomechanical data and ... how this may influence conclusions...
 
 First, we used sequential analysis to understand the stability of biomechanical variables as gait cycle number is increased.
 
-Second, we examined how representative varying samples of gait cycles were to an individuals entire bout of continuous treadmill running.
+Second, we examined how varying the number of gait cycle samples impacted the representative mean compared to the entire bout of continuous treadmill running.
 
 Third, we examined whether sampling gait cycles of varying number from different sections of an individuals bout of continuous treadmill running could influence biomechanical outcome variables.
 
@@ -76,6 +78,8 @@ Fourth, we examined whether varying samples of gait cycles could influence our c
 
 
 # Methods
+
+*TODO: THIS PAPER WILL WORK BETTER WITH METHODS CONNECTED TO RESULTS, LIKE THE SUPER SHOT PAPER...*
 
 
 We used the public dataset of treadmill running biomechanics provided by Fukuchi et al.[@Fukuchi2017]. The specific details of this dataset can be found in the associated paper [@Fukuchi2017]. Briefly, this dataset contains lower-extremity kinematics and kinetics of 28 regular runners (27 male, 1 female; age = 34.8 ± 6.7 years; height = 176.0 ± 6.8 cm; mass = 69.6 ± 7.7 kg; running experience = 8.5 ± 7.0 years; running pace = 4.1 ± 0.4 min/km) [@Fukuchi2017]. Running kinematics were collected using a 12-camera 3D motion capture system (Raptor-4, Motion Analysis, Santa Rosa, CA, United States) and ground reaction force (GRF) data via an instrumented dual-belt treamill (FIT, Bertec, Columbus, OH, United States) [@Fukuchi2017]. Participants ran on the treadmill at three designated speeds (2.5m·s^-1^, 3.5m·s^-1^ and 4.5m·s^-1^), during which a three-minute accommodation period was provided followed by a 30-second data collection period [@Fukuchi2017]. 
@@ -90,11 +94,59 @@ We processed the experimental data from Fukuchi et al.[@Fukuchi2017] using OpenS
 - 0D and 1D variables...outline how these are calculated and what they are...
 - Data from right limb
 
+# How many gait cycles are required to generate 'stable' kinematic data?
 
 We used sequential analysis to determine the minimum number of gait cycles required to reach a 'stable' representative mean within the number of gait cycles extracted from the 30-second period of treadmill running. Sequential analysis was individually applied across the different running speeds and kinematic variables (both 0D and 1D variants) examined. We used multiple bandwidths to determine varying degrees of 'stability'. This included ± 0.25 of one standard deviation from the target mean, in line with existing studies applying sequential analysis to biomechanical data ***ADD REFS***; but expanded this to ± 0.50, 0.75 and 1.00 of one standard deviation from the target mean. This additional analysis can provide various thresholds for which researchers can choose to apply to their own studies. For 0D variables, the sequential discrete data points across all gait cycles from each participant were averaged to create the target stability, from which the various standard deviation bandwidths were applied to. To be considered 'stable,' a 0D variable had to fall and remain within the bandwidth for the rest of the gait cycles. For 1D variables, the same technique was applied to each time-normalised point along the continuous kinematic waveform. To be considered 'stable,' a all points along the 1D kinematic waveform had to fall and remain within the bandwidth for the rest of the gait cycles. The number of gait cycles where stability was reached across the various running speeds, kinematic variables and stability thresholds were extracted and descriptive statistics (i.e. mean, median, inter-quartile ranges, total range) were calculated. The proportion of participants reaching stability at each gait cycle number was also calculated.
 
+*TODO: add results for this section here...*
+
+- Sequential analysis revealed...
+- Stability reached earlier with 0D vs. 1D variables (see boxplot)
+  -- Also more steadier build up of participants who reached stability from 0D to 1D (i.e. the lower bound for the number of cycles required for 1D variables was higher -- see line plot)
+- Stability reached with fewer gait cycles with an altered stability boundary (i.e. 0.25 SD to 1SD)
+- No. of gait cycles to reach stability seemed relatively independent of variable type (consistent number of gait cycles required) irrespective of the lower limb variable considered
+- Wide ranges for reaching stability across individuals (e.g. some required very few, < 10; others required a large number of gait cycles > 30) -- this was dependent on the threshold though
+- Seemed to be a slight shift for the proportion of participants reaching stability as speed increased (see line plots) -- slight shift to the right of the curves for the number of participants reaching stability as speed increased
+
+
+# How does the number of gait cycles used impact the representative kinematic mean?
+
+
+
+*TODO: add methods...*
+
+...
+
+
+*TODO: Results here...*
+
+- The absolute error of the representative kinematic mean (compared to the mean from all cycles) progressively reduced as the number of gait cycles increased; but the errors were still quite small
+  -- e.g. 0D at 2.5 metres per second were all less than 1 degree
+- Errors for 0D did however become slightly larger with lower gait cycle numbers at the highest running speed, and typically needed to use a high number (e.g. 30) gait cycles to reach similar levels of error compared to the 'ground truth' during the 4.5 metres per second
+
+- The peak absolute errors from the 1D comparison showed a similar trend of reducing with a greater number of gait cycles, but errors were similarly small
+- Wasn't as an obvious jump with higher running speed in the peak absolute errors for 1D comparisons
+
+
+
+# How does the sampling location within a treadmill bout impact the representative kinematic mean?
+
+*TODO: add methods...*
+
+...
+
+
+*TODO: add results...*
+
+- Increasing the number of gait cycles didn't really change the errors between the sampling means
+- Errors between sampling sections were relatively small for 2.5 and 3.5 metres per second, but increased a little for 4.5 metres per second. 
+- Effectively at lower speeds, where you sample your gait cycles from in a period of treadmill running didn't have a dramatic effect on the kinematic mean at 2.5 and 3.5 metres per second (i.e. with 1 degree of one another), but this slightly increased at the highest running speed
+- Practically what this means is you can expect a little bit of error depending on where the data is sampled from, but not a whole lot; and this isn't really modulated from a number of gait cycles perspective
+
+
 
 # Results
+
 
 
 
@@ -113,6 +165,16 @@ summary(cars)
 # Discussion
 
 ...
+
+***KEY POINT = higher speeds seem to necessitate a greater number of gait cycles to reach stability and be representative of the entire running bout***
+
+***KEY POINT = despite seeing improvements in the 'error' of a representative kinematic mean with a larger number of gait cycles, the differences were quite small (e.g. 1-2 degrees at a maximum). This may be important to detect small differences in running technique, but the magnitude of some of these errors perhaps need to be considered against the added data collection, management, and processing times associated with including more gait cycles. For example, your representative mean for knee flexion may improve by 0.5 degrees when going from 5 to 30 gait cycles --- but how much extra time does this take, data storage too? Effectively a small number of cycles sampled from a longer continuous treadmill bout presents a relatively similar kinematic mean compared to a mean calculated from the entire bout of running.***
+
+***KEY POINT = once you've decided how many gait cycles you're using, where do you take the data from? Our results suggest it probably doesn't matter too much, and this opinion doesn't really change if you're using more or less gait cycles to create the mean. If you are taking a sub-sample from the treadmill bout, you can expect this to have a potential effect within the realm of < 1 degree at lower speeds -- but slightly higher at faster speeds. Practically what this means is if you see a very small difference between conditions, groups etc., this could simply be driven by the sampling from the treadmill bout (e.g. if you sampled from a different portion, could the results be different?). Note that we sampled consecutiv gait cycles for this analysis.***
+
+Stability analysis -- reveals for entire 1D spectrum to be 'stable' in accordance with existing definitions (i.e. within 0.25 SD), 30 gait cycles may be necessary for capture; whereas we saw a similar values for 0D variables to Oliveira study with around 20 required for these variables. Unsurprisingly, relaxing the bounds as to what is considered 'stable' (i.e. from 0.25SD up to 1SD) resulted in less gait cycles being required for a stable pattern
+
+There was no noticeable effect across different kinematic variables for the number of cycles to reach stability; there was a potential small increase in the number of cycles required for achieving 'stability' as running speed increased. It took more gait cycles for stability to be reached across the majority of participants with higher running speeds -- consideration for research at higher speeds
 
 Our fourth question perhaps presents the most practically meaningful analysis of this work, in understanding how the number and selection of gait cycles could impact the conclusions of a comparative study using a paired design...
 
