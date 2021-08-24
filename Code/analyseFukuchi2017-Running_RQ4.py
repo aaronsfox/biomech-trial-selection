@@ -37,8 +37,8 @@ from scipy import stats
 import spm1d
 import warnings
 warnings.filterwarnings('ignore') #filter warnings for SPM1D
-import time
 import tqdm
+from sklearn.metrics import cohen_kappa_score as kappa
 
 #Set matplotlib parameters
 from matplotlib import rcParams
@@ -368,13 +368,165 @@ else:
     
     print('Not running statistical tests --- takes too long...')
 
-# %%
+# %% Analyse statistical outputs
 
-#### Does the null hypothesis rejection rate need to be contrasted with a power
+#### TODO: Does the null hypothesis rejection rate need to be contrasted with a power
 #### analysis of sorts to discover our true potential discovery rate?????
+
+#Navigate to results directory
+os.chdir(diffCompDir)
+
+#Set number of pairwise comparisons
+nPairwiseComp = 3
+
+#Allocate list to store the pairwise comparison results in
+pairwiseResults_0D = []
+
+#Loop through gait cycle extraction numbers
+for ee in range(len(extractNo)):
+
+    #Set current extraction number
+    currNo = int(extractNo[ee])
+            
+    #Allocate array to store pairwise results in
+    pairwiseStore = np.empty((nPairwiseComp*len(analysisVar),nSamples))
+    
+    #Loop through variables
+    for vv in range(len(analysisVar)):
+        
+        #Load current results
+        statOutput = loadPickleDict(f'Fukuchi2017-Running-stats0D-n{nSamples}-gc{currNo}-{analysisVar[vv]}.pbz2')
+        
+        #Loop through current variabl samples and extract the pairwise comparisons
+        #Each variable gets stacked on top of one another in columns of the array
+        #The 'difference' is set at -1, 0 or +1 depending on if the variable comparison
+        #is less than, not different or greater than for the relevant comparison
+        for nn in range(nSamples):
+            #Check for post-hoc comparisons first
+            if not statOutput['rejectH0'][nn]:
+                #Allocate all comparisons as false if no post-hoc
+                pairwiseStore[nPairwiseComp*vv:nPairwiseComp*vv+nPairwiseComp,nn] = 0
+            else:
+                #Extract the pairwise comparisons from the posthoc tests
+                #int() command converts boolean to 0 or 1
+                for cc in range(nPairwiseComp):
+                    if statOutput['pairwiseComp'][nn]['rejectH0'][cc] and statOutput['pairwiseComp'][nn]['t'][cc] < 0:
+                        pairwiseStore[nPairwiseComp*vv+cc,nn] = -1
+                    elif statOutput['pairwiseComp'][nn]['rejectH0'][cc] and statOutput['pairwiseComp'][nn]['t'][cc] > 0:
+                        pairwiseStore[nPairwiseComp*vv+cc,nn] = 1
+                    else:
+                        pairwiseStore[nPairwiseComp*vv+cc,nn] = 0
+            
+    #Append pairwise comparisons for current gait number iteration to list
+    pairwiseResults_0D.append(pairwiseStore)
+
+
+
+
+
+
+
+#### WITHIN CYCLE KAPPA
+
+
+### Combining variables works better for Kappa score - probably still need a check
+### if there is only one outcome across the two arrays
+        
+
+
+#Calculate total number of agreement combinations
+nCombinations = int((nSamples*(nSamples-1))/2)
+
+#Set list to store data in
+withinKappa_0D = []
+
+#Loop through extraction numbers
+ee = 0
+
+#Set current extraction number
+currNo = int(extractNo[ee])
+
+#Set array to store kappa values in
+kVals = np.empty((nSamples,nSamples)) * np.nan
+
+#Loop through all possible combinations of the samples
+####### THIS IS A LOT OF COMBINATIONS --- IS IT APPROPRIATE?
+####### THIS TAKES A BIT OF TIME (~5 MINS) & CREATES A DIAGONAL MATRIX WITH TOP HALF FILLED
+
+#### Should we be comparing agreement across EVERY iteration, or take the first
+#### one as the 'gold standard'?
+
+for ii in tqdm.tqdm(range(nSamples),
+                    desc = f'Calculating within sampling Kappa for {currNo} gait cycles',
+                    position = 0, leave = True):    
+    for jj in range(ii+1, nSamples):
+        #Calculate kappa value
+        #TODO: add in checks for singular outcome
+            kVals[ii,jj] = kappa(pairwiseResults_0D[ee][:,ii], pairwiseResults_0D[ee][:,jj])
+
+#Store kappa values in list
+withinKappa_0D.append(kVals)
+
+##### TODO: Save these data so it doesn't need to be repeated
+
+#################
+
+#Consider comparison of statistical outputs across number of gait cycles
+#Between cycle agreement
+
+#### Same consideration as above --- should it be each sample iteration to compare,
+#### or every single possible iteration of samples to compare
+
+##### BETWEEN CYCLE KAPPA AGREEMENT
+
+#Set list to store data in
+betweenKappa_0D = []
+
+#Loop through gait cycle extraction numbers
+for ee in range(len(extractNo)):
+    
+    #Set array to store the extracted sample kappa values in
+    kVals = np.empty((nSamples,len(extractNo) - ee - 1)) * np.nan
+    
+    #Compare to other extraction numbers
+    for ff in range(ee + 1, len(extractNo)):
+        
+        #Loop through the samples to compare the current extraction numbers
+        for nn in range(nSamples):
+
+            #Calculate kappa score and allocate to array
+            kVals[nn, ff - ee - 1] = kappa(pairwiseResults_0D[ee][:,nn], pairwiseResults_0D[ff][:,nn])
+            
+    #Store kappa scores in list
+    betweenKappa_0D.append(kVals)
+    
+    
+
+#### Can these be mapped out as a distribution in a subplot grid???
+#### Better approach vs. heatmap grid???
+#### Need more of a summary heatmap vs. the grid --- quite dense, but would still
+#### be useful
+#### Histogram bins are a little separated considering the specific Kappa options available
+        
+        
+        
+
+
+
+    
 
 ####Could do Kappa agreement between sample conclusions?????
 ####This is kind of like within (i.e. same gait cycle no) and between (i.e. different
 ####gait cycle number) agreement. Within agreement would just be simple bar chart,
 ####between agreement would be a matrix heatmap
+    ##### Not sure this really works well with only 3 items to evaluate each time
+    
+#### Actually need to stack all variables (i.e. 3 x X) to do a proper Kappa evaluation
+#### across all variables. Outcomes need to be -1, 0 or +1 to consider directionality
+#### of peak difference --- then compare across all iterations to get an average + variance
 
+#### Consider limitation of this approach is converting data to nominal scale (i.e.
+#### different or not different) to consider agreement...
+
+#### Discussion point - theoretically the higher gait cycle numbers should have
+#### tighter agreement as there is less 'wiggle room' for what the mean should be?
