@@ -4,11 +4,11 @@ author:
   - name: Aaron S. Fox
     affiliation: Centre for Sport Research
     footnote: 1
-  - name: Meghan F. Keast
+  - name: Jason Bonacci
     affiliation: Centre for Sport Research
   - name: John Warmenhoven
     affiliation: UNSW
-  - name: Jason Bonacci
+  - name: Meghan F. Keast
     affiliation: Centre for Sport Research
 address:
   - code: Centre for Sport Research
@@ -23,6 +23,7 @@ abstract: |
 
 journal: ar$\chi$iv
 date: "Version 1.0:`r Sys.Date()`"
+geometry: margin=1in
 bibliography: mybibfile.bib
 #linenumbers: true
 #numbersections: true
@@ -38,6 +39,10 @@ knitr::opts_chunk$set(echo = FALSE)
 # knit: (function(inputFile, encoding) {
 #   rmarkdown::render(inputFile, encoding = encoding,
 #   output_format = "all") })
+
+#Import libraries
+shhh <- suppressPackageStartupMessages # It's a library, so shhh!
+shhh(library(here))
 
 ```
                                                   
@@ -64,6 +69,7 @@ Oliveira and Pirscoveanu[@Oliveira2021] subsequently performed a study investiga
 The findings from their study are, however, specific to overground running and the specific set of variables analysed (i.e. foot contact time, loading rate, peak vertical force, peak braking force, running speed and foot contact angle). Treadmill-based studies of running are common across the biomechanical literature ***ADD REFS***. It is plausible that treadmill running may incur a different pattern of 'stability' with respect to the number of gait cycles needed for analyses, resulting in variable recommendations to those presented by Oliveira and Pirscoveanu[@Oliveira2021]. Further, Oliveira and Pirscoveanu[@Oliveira2021] did not examine lower limb kinematic variables commonly used in gait biomechanics studies. These kinematic variables are presented as both 'zero-dimensional' (0D; e.g. peak values) and 'one-dimensional' (1D; e.g. time-normalised kinematic waveform) variables across biomechanical studies ***ADD REFS***. Additional analyses of these common kinematic variables in both their 0D and 1D forms may, again, yield additional information with respect to the number of gait cycles required in biomechanical research. 
 
 Another limitation to consider is the analysis focused on statistical significance...not bounds around error measurement?
+(i.e. no understanding of the absolute magnitude of 'error' potentially introduced when using different sampling numbers)
 
 
 We sought to understand the impact of the number of gait cycles selected, along with where these are selected from during a continuous bout of treadmill running, on biomechanical data and ... how this may influence conclusions...
@@ -77,26 +83,17 @@ Third, we examined whether sampling gait cycles of varying number from different
 Fourth, we examined whether varying samples of gait cycles could influence our capacity to detect biomechanical differences between conditions — specifically, between running at two different speeds.
 
 
-# Methods
+# Dataset
 
-*TODO: THIS PAPER WILL WORK BETTER WITH METHODS CONNECTED TO RESULTS, LIKE THE SUPER SHOT PAPER...*
+We used the public dataset of treadmill running biomechanics from Fukuchi et al.[@Fukuchi2017]. The specifics of this dataset can be found in the associated paper [@Fukuchi2017]. Briefly, this dataset contains lower-extremity kinematics and kinetics of 28 regular runners (27 male, 1 female; age = 34.8 ± 6.7 years; height = 176.0 ± 6.8 cm; mass = 69.6 ± 7.7 kg; running experience = 8.5 ± 7.0 years; running pace = 4.1 ± 0.4 min/km) [@Fukuchi2017]. Running kinematics were collected using a 12-camera 3D motion capture system (Raptor-4, Motion Analysis, Santa Rosa, CA, United States) and ground reaction force (GRF) data via an instrumented dual-belt treadmill (FIT, Bertec, Columbus, OH, United States) [@Fukuchi2017]. Participants ran on the treadmill at three designated speeds (2.5m·s^-1^, 3.5m·s^-1^ and 4.5m·s^-1^), during which a three-minute accommodation period was provided followed by a 30-second data collection period [@Fukuchi2017]. 
 
+We processed the experimental data from Fukuchi et al.[@Fukuchi2017] using OpenSim 4.0 [@Delp2007]. Segment geometry of the generic musculoskeletal model of the pelvis and lower limb provided by Lai et al.[@Lai2017] were scaled for each participant using their static calibration trial, which was also used as a reference for adjusting marker positions on the model. Lower limb joint angles were calculated using filtered (10Hz low-pass 4^th^ order Butterworth) marker trajectory data within inverse kinematics analysis. GRF data were also filtered using the same cut-off frequency and filter. The filtering procedures reflected those originally performed by Fukuchi et al.[@Fukuchi2017]. Foot strike and toe-off events were determined when the vertical GRF crossed a 20N threshold, also in line with the original work on this dataset [@Fukuchi2017].
 
-We used the public dataset of treadmill running biomechanics provided by Fukuchi et al.[@Fukuchi2017]. The specific details of this dataset can be found in the associated paper [@Fukuchi2017]. Briefly, this dataset contains lower-extremity kinematics and kinetics of 28 regular runners (27 male, 1 female; age = 34.8 ± 6.7 years; height = 176.0 ± 6.8 cm; mass = 69.6 ± 7.7 kg; running experience = 8.5 ± 7.0 years; running pace = 4.1 ± 0.4 min/km) [@Fukuchi2017]. Running kinematics were collected using a 12-camera 3D motion capture system (Raptor-4, Motion Analysis, Santa Rosa, CA, United States) and ground reaction force (GRF) data via an instrumented dual-belt treamill (FIT, Bertec, Columbus, OH, United States) [@Fukuchi2017]. Participants ran on the treadmill at three designated speeds (2.5m·s^-1^, 3.5m·s^-1^ and 4.5m·s^-1^), during which a three-minute accommodation period was provided followed by a 30-second data collection period [@Fukuchi2017]. 
-
-
-- Within our work, we only used data collected from the 2.5m·s^-1^ and 4.5m·s^-1^ trials. [maybe? - probably not...]
-
-We processed the experimental data from Fukuchi et al.[@Fukuchi2017] using OpenSim 4.0 [@Delp2007]. Segment geometry of the generic musculoskeletal model of the pelvis and lower limb provided by Lai et al.[@Lai2017] were scaled for each participant using their static calibration trial, which was also used as a reference for adjusting marker positions on the model. Lower limb joint angles were calculated using filtered (10Hz low-pass 4^th^ order Butterworth) marker trajectory data within inverse kinematics analysis. GRF data were also filtered using the same cut-off frequency and filter. The filtering procedures reflected those originally performed by Fukuchi et al.[@Fukuchi2017]. Foot strike and toe-off events were determined when the vertical GRF crossed a 20N threshold, in line with the original work on this dataset [@Fukuchi2017].
-
-
-
-- 0D and 1D variables...outline how these are calculated and what they are...
-- Data from right limb
+Kinematic variables common to gait biomechanics studies (i.e. hip flexion/extension, hip adduction/abduction, hip internal/external rotation, knee flexion and ankle plantarflexion/dorsiflexion) were extracted from the right limb for all participants. Data between consecutive foot strikes were extracted and time-normalised to 0-100% of the gait cycle. The time-normalised one-dimensional (1D) curves were used in subsequent 1D analyses, while a set of peak variables (hip flexion, hip adduction, hip internal rotation, knee flexion, ankle dorsiflexion) were calculated and extracted for the zero-dimensional (0D) analyses.
 
 # How many gait cycles are required to generate 'stable' kinematic data?
 
-We used sequential analysis to determine the minimum number of gait cycles required to reach a 'stable' representative mean within the number of gait cycles extracted from the 30-second period of treadmill running. Sequential analysis was individually applied across the different running speeds and kinematic variables (both 0D and 1D variants) examined. We used multiple bandwidths to determine varying degrees of 'stability'. This included ± 0.25 of one standard deviation from the target mean, in line with existing studies applying sequential analysis to biomechanical data ***ADD REFS***; but expanded this to ± 0.50, 0.75 and 1.00 of one standard deviation from the target mean. This additional analysis can provide various thresholds for which researchers can choose to apply to their own studies. For 0D variables, the sequential discrete data points across all gait cycles from each participant were averaged to create the target stability, from which the various standard deviation bandwidths were applied to. To be considered 'stable,' a 0D variable had to fall and remain within the bandwidth for the rest of the gait cycles. For 1D variables, the same technique was applied to each time-normalised point along the continuous kinematic waveform. To be considered 'stable,' a all points along the 1D kinematic waveform had to fall and remain within the bandwidth for the rest of the gait cycles. The number of gait cycles where stability was reached across the various running speeds, kinematic variables and stability thresholds were extracted and descriptive statistics (i.e. mean, median, inter-quartile ranges, total range) were calculated. The proportion of participants reaching stability at each gait cycle number was also calculated.
+We used sequential analysis to examine the threshold for the number of gait cycles required to reach a 'stable' representative mean from the 30-second bout of treadmill running. Sequential analysis was individually applied across the different running speeds and kinematic variables (both 0D and 1D variants). We used multiple bandwidths to examine varying thresholds of 'stability.' This included the typical ± 25% of one standard deviation from the target mean, in line with existing studies applying sequential analysis to biomechanical data ***[...ADD REFS...]***; but also expanded this to ± 50%, 75% and 100% of one standard deviation from the target mean. These additional analyses were undertaken to provide various thresholds for which researchers can apply to their own studies. For 0D variables, the sequential discrete data points across all gait cycles from each participant were averaged to create the target stability value, from which the various standard deviation bandwidths were applied. To be considered 'stable,' a 0D variable had to fall and remain within the bandwidth for the remaining gait cycles within the treadmill bout. For 1D variables, the same technique was applied to each time-normalised point along the continuous kinematic waveform. To be considered 'stable,' all points along the 1D kinematic waveform had to fall and remain within the bandwidth for the remaining gait cycles within the treadmill bout. The number of gait cycles where stability was reached across the various running speeds, kinematic variables and stability thresholds were extracted and descriptive statistics (i.e. mean, median, inter-quartile ranges, total range) were calculated. The proportion of participants reaching stability at each gait cycle number was also calculated.
 
 *TODO: add results for this section here...*
 
@@ -107,29 +104,127 @@ We used sequential analysis to determine the minimum number of gait cycles requi
 - No. of gait cycles to reach stability seemed relatively independent of variable type (consistent number of gait cycles required) irrespective of the lower limb variable considered
 - Wide ranges for reaching stability across individuals (e.g. some required very few, < 10; others required a large number of gait cycles > 30) -- this was dependent on the threshold though
 - Seemed to be a slight shift for the proportion of participants reaching stability as speed increased (see line plots) -- slight shift to the right of the curves for the number of participants reaching stability as speed increased
+- Very few participants reached stability with < 20 gait cycles for 1D variables at 0.25% SD, pretty strict criteria for this given whole gait cycle was used though
+
+Zero-dimensional kinematic variables reached 'stable' values with fewer gait cycles compared to 1D variables irrespective of the running speed or stability threshold used (see Figure \ref{fig:boxplotStability})
+
+```{r boxplotStability, fig.cap = "Number of gait cycles required to produce a 'stable' value at various speeds (i.e. rows; 2.5m·s$^{-1}$, 3.5m·s$^{-1}$ and 4.5m·s$^{-1}$) and stability thresholds (i.e. columns; 25$\\%$, 50$\\%$, 75$\\%$ and 100$\\%$ of one standard deviation [SD] from the stable mean) for zero-dimensional (0D; black) and one-dimensional (1D; red) kinematic variables. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/SequentialAnalysis/Figures/Boxplot_NoGaitCycles_Stability.pdf", sep = ""))
+
+```
+
+
+
+```{r stableParticipants25, fig.cap = "Proportion of participants displaying 'stable' values for zero-dimensional (0D; left column) and one-dimensional (1D; right column) kinematic variables at various speeds (i.e. rows; 2.5m·s$^{-1}$, 3.5m·s$^{-1}$ and 4.5m·s$^{-1}$) using a stability threshold of 25$\\%$ of one standard deviation from the stable mean.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/SequentialAnalysis/Figures/LinePlot_StableProportion_25perSD.pdf", sep = ""))
+
+```
+
+
+
+```{r stableParticipants50, fig.cap = "Proportion of participants displaying 'stable' values for zero-dimensional (0D; left column) and one-dimensional (1D; right column) kinematic variables at various speeds (i.e. rows; 2.5m·s$^{-1}$, 3.5m·s$^{-1}$ and 4.5m·s$^{-1}$) using a stability threshold of 50$\\%$ of one standard deviation from the stable mean.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/SequentialAnalysis/Figures/LinePlot_StableProportion_50perSD.pdf", sep = ""))
+
+```
+
+
+```{r stableParticipants75, fig.cap = "Proportion of participants displaying 'stable' values for zero-dimensional (0D; left column) and one-dimensional (1D; right column) kinematic variables at various speeds (i.e. rows; 2.5m·s$^{-1}$, 3.5m·s$^{-1}$ and 4.5m·s$^{-1}$) using a stability threshold of 75$\\%$ of one standard deviation from the stable mean.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/SequentialAnalysis/Figures/LinePlot_StableProportion_75perSD.pdf", sep = ""))
+
+```
+
+
+```{r stableParticipants100, fig.cap = "Proportion of participants displaying 'stable' values for zero-dimensional (0D; left column) and one-dimensional (1D; right column) kinematic variables at various speeds (i.e. rows; 2.5m·s$^{-1}$, 3.5m·s$^{-1}$ and 4.5m·s$^{-1}$) using a stability threshold of 100$\\%$ of one standard deviation from the stable mean.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/SequentialAnalysis/Figures/LinePlot_StableProportion_100perSD.pdf", sep = ""))
+
+``` 
+
+
+
+
 
 
 # How does the number of gait cycles used impact the representative kinematic mean?
 
 
-
-*TODO: add methods...*
-
-...
-
+We determined 'ground truth' values for both 0D and 1D variables by calculating the mean from all gait cycles in the 30-second bout of treadmill running. This value was thought to be the 'most representative' of each participants average running kinematics, and was not influenced by the selection of a subset of gait cycles from the running bout. We then iteratively calculated mean values across the 0D and 1D variables using a range (*n* = 5 — 30) of gait cycles from the treadmill running bout. For each iteration, a random sample of *n* consecutive gait cycles were extracted from the treadmill running bout and used to calculate a representative kinematic mean. We then compared this representative kinematic mean to the 'ground truth' value for the respective variable to determine the 'error.'For 0D variables, the absolute difference between the two values was recorded. For 1D variables, the absolute difference at each point across the time-normalised gait cycle were calcualted and the peak difference value recorded. The random sampling process for each *n* of gait cycles was repeated 1,000 times for each participant at each running speed — and the error values collated to present descriptive statistics (i.e. mean, median, inter-quartile ranges, total range) for each gait cycle number across the kinematic variables and running speeds.
 
 *TODO: Results here...*
 
-- The absolute error of the representative kinematic mean (compared to the mean from all cycles) progressively reduced as the number of gait cycles increased; but the errors were still quite small
+- The absolute error of the representative kinematic mean (compared to the mean from all cycles) progressively reduced as the number of gait cycles increased; but the errors were still quite small for the majority of variables even when using the smallest subset of gait cycles
   -- e.g. 0D at 2.5 metres per second were all less than 1 degree
 - Errors for 0D did however become slightly larger with lower gait cycle numbers at the highest running speed, and typically needed to use a high number (e.g. 30) gait cycles to reach similar levels of error compared to the 'ground truth' during the 4.5 metres per second
+- Fairly consistent distribution of 'error' at 2.5 and 3.5 metres per second -- however  distribution seemed to stretch and become bimodal at the higher speeds for certain variables (hip and knee kinematics) -- produced wider ranges for potential 'error' when using a reduced number of gait cycles at higher speeds (e.g. 1.5 to 2 degrees for hip and knee flexion, hip adduction with < 20-25 gait cycles)
 
 - The peak absolute errors from the 1D comparison showed a similar trend of reducing with a greater number of gait cycles, but errors were similarly small
 - Wasn't as an obvious jump with higher running speed in the peak absolute errors for 1D comparisons
 
+```{r groundTruthError_runT25_0D, fig.cap = "Absolute error in peak kinematic variables (i.e. zero-dimensional [0D]) when running at 2.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT25_0D.pdf", sep = ""))
+
+``` 
+
+
+```{r groundTruthError_runT35_0D, fig.cap = "Absolute error in peak kinematic variables (i.e. zero-dimensional [0D]) when running at 3.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT35_0D.pdf", sep = ""))
+
+``` 
+
+
+```{r groundTruthError_runT45_0D, fig.cap = "Absolute error in peak kinematic variables (i.e. zero-dimensional [0D]) when running at 4.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT45_0D.pdf", sep = ""))
+
+``` 
+
+
+```{r groundTruthError_runT25_1D, fig.cap = "Peak absolute error in kinematic variables across the gait cycle (i.e. one-dimensional [1D]) when running at 2.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT25_1D.pdf", sep = ""))
+
+```
+
+
+```{r groundTruthError_runT35_1D, fig.cap = "Peak absolute error in kinematic variables across the gait cycle (i.e. one-dimensional [1D]) when running at 3.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT35_1D.pdf", sep = ""))
+
+```
+
+
+```{r groundTruthError_runT45_1D, fig.cap = "Peak absolute error in kinematic variables across the gait cycle (i.e. one-dimensional [1D]) when running at 4.5m·s$^{-1}$ using a subset of gait cycles versus all gait cycles from the 30-second treadmill bout. Horizontal lines within boxes equate to the median value, boxes indicate the 25$^{th}$ to 75$^{th}$ percentile, and whiskers indicate the range. Shaded violins are included to illustrate the distribution of values. FLEX — flexion; EXT — extension; ADD — adduction; ABD — abduction; IR — internal rotation; ER — external rotation; DF — dorsiflexion; PF — plantarflexion.", fig.align = 'center', out.width = '100%'}
+
+#Create figure from image
+knitr::include_graphics(paste(here::here(),"/Analysis/GroundTruthComp/Figures/AbsoluteError_NoGaitCycle_runT45_1D.pdf", sep = ""))
+
+```
+
+
+...
+
+
 
 
 # How does the sampling location within a treadmill bout impact the representative kinematic mean?
+
+*NOTE: don't really like the above heading wording...*
 
 *TODO: add methods...*
 
