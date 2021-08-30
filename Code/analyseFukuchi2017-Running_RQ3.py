@@ -214,32 +214,6 @@ for tt in range(len(trialList)):
         sns.boxplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
                     whis = [0,100], color = colourMap[tt], width = 0.75,
                     zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
-
-        #Adjust x-axes labels
-        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
-            #Set x-limits
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
-                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
-            #Set x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
-            #Set label
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
-        else:
-            #Set x-limits
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
-                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
-            #Set x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
-            #Remove x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
-            #Remove label
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
-            
-        #Set y-label
-        if whichAx[vv][1] == 0:
-            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Absolute Difference (\u00b0)')
-        else:
-            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
         
         #Alter the faces and outlines of bars
         #Loop through boxes and fix colours
@@ -274,6 +248,32 @@ for tt in range(len(trialList)):
         for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
             violin.set_alpha(0.3)
             violin.set_linewidth(0)
+
+        #Adjust x-axes labels
+        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
+            #Set label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
+        else:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
+            #Remove x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
+            #Remove label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
+            
+        #Set y-label
+        if whichAx[vv][1] == 0:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Absolute Difference (\u00b0)')
+        else:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
         
         #Set title
         ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'Peak {analysisLabels[vv]} at {trialLabels[tt]}')
@@ -324,32 +324,6 @@ for tt in range(len(trialList)):
         sns.boxplot(data = df_currData, x = 'extractNo', y = 'peakAbsError',
                     whis = [0,100], color = colourMap[tt], width = 0.75,
                     ax = ax[whichAx[vv][0],whichAx[vv][1]])
-
-        #Adjust x-axes labels
-        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
-            #Set x-limits
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
-                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
-            #Set x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
-            #Set label
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
-        else:
-            #Set x-limits
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
-                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
-            #Set x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
-            #Remove x-ticks
-            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
-            #Remove label
-            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
-            
-        #Set y-label
-        if whichAx[vv][1] == 0:
-            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Peak Absolute Difference (\u00b0)')
-        else:
-            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
         
         #Alter the faces and outlines of bars
         #Loop through boxes and fix colours
@@ -384,6 +358,32 @@ for tt in range(len(trialList)):
         for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
             violin.set_alpha(0.3)
             violin.set_linewidth(0)
+
+        #Adjust x-axes labels
+        if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
+            #Set label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('No. of Gait Cycles')
+        else:
+            #Set x-limits
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlim([ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[0]-0.5,
+                                                        ax[whichAx[vv][0],whichAx[vv][1]].get_xlim()[1]+0.5])
+            #Set x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xticks(np.linspace(0,len(extractNoDual)-1, int((len(extractNoDual)-1)/5)+1))
+            #Remove x-ticks
+            ax[whichAx[vv][0],whichAx[vv][1]].xaxis.set_ticklabels([])
+            #Remove label
+            ax[whichAx[vv][0],whichAx[vv][1]].set_xlabel('')
+            
+        #Set y-label
+        if whichAx[vv][1] == 0:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('Peak Absolute Difference (\u00b0)')
+        else:
+            ax[whichAx[vv][0],whichAx[vv][1]].set_ylabel('')
         
         #Set title
         ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'1D {analysisLabels[vv]} at {trialLabels[tt]}')
