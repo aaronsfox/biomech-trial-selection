@@ -536,7 +536,7 @@ for tt in range(len(trialList)):
         #Plot boxplot with Seaborn
         sns.boxplot(data = df_currSeq, x = 'analysisVar', y = 'stabilityGC',
                     whis = [0,100], palette = ['k','r'], hue = 'varType', width = 0.5,
-                    ax = ax[tt,ss])
+                    zorder = 5, ax = ax[tt,ss])
         
         #Alter the faces and outlines of bars
         #Loop through boxes and fix colours
@@ -570,6 +570,17 @@ for tt in range(len(trialList)):
         #               ax = ax[tt,ss])
         
         #Mean and SD points don't really fit that well...
+        
+        #Add violin for distribution
+        sns.violinplot(data = df_currSeq, x = 'analysisVar', y = 'stabilityGC',
+                       cut = True, scale = 'width', inner = None,
+                       palette = ['k','r'], hue = 'varType', width = 0.5,
+                       zorder = 4, ax = ax[tt,ss])
+        
+        #Set alpha and line width on violins
+        for violin in ax[tt,ss].collections:
+            violin.set_alpha(0.3)
+            violin.set_linewidth(0)
 
         #Remove legend
         ax[tt,ss].get_legend().set_visible(False)

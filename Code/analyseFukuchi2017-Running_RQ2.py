@@ -220,7 +220,7 @@ for tt in range(len(trialList)):
         #Plot on current axes
         sns.boxplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
                     whis = [0,100], color = colourMap[tt], width = 0.75,
-                    ax = ax[whichAx[vv][0],whichAx[vv][1]])
+                    zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
 
         #Adjust x-axes labels
         if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
@@ -271,6 +271,17 @@ for tt in range(len(trialList)):
                 if jj < ii*6 + 2:
                     line.set_linestyle('--')
                     
+        #Add violin plot
+        sns.violinplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
+                       cut = True, scale = 'width', inner = None,
+                       color = colourMap[tt], width = 0.75,
+                       zorder = 4, ax = ax[whichAx[vv][0],whichAx[vv][1]])
+        
+        #Adjust alpha and edge width on violins
+        for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
+            violin.set_alpha(0.3)
+            violin.set_linewidth(0)        
+                    
         #Set title
         ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'Peak {analysisLabels[vv]} at {trialLabels[tt]}')
             
@@ -319,7 +330,7 @@ for tt in range(len(trialList)):
         #Plot on current axes
         sns.boxplot(data = df_currData, x = 'extractNo', y = 'peakAbsError',
                     whis = [0,100], color = colourMap[tt], width = 0.75,
-                    ax = ax[whichAx[vv][0],whichAx[vv][1]])
+                    zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
 
         #Adjust x-axes labels
         if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
@@ -370,6 +381,17 @@ for tt in range(len(trialList)):
                 if jj < ii*6 + 2:
                     line.set_linestyle('--')
                     
+        #Add violin plot
+        sns.violinplot(data = df_currData, x = 'extractNo', y = 'peakAbsError',
+                       cut = True, scale = 'width', inner = None,
+                       color = colourMap[tt], width = 0.75,
+                       zorder = 4, ax = ax[whichAx[vv][0],whichAx[vv][1]])
+        
+        #Adjust alpha and edge width on violins
+        for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
+            violin.set_alpha(0.3)
+            violin.set_linewidth(0)  
+        
         #Set title
         ax[whichAx[vv][0],whichAx[vv][1]].set_title(f'1D {analysisLabels[vv]} at {trialLabels[tt]}')
             
