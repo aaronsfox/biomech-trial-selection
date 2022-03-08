@@ -191,6 +191,7 @@ for tt in range(len(trialList)):
 
 #Set colours to distinguish the similar looking plots for speed
 colourMap = ['#4885ed', '#fdb61c', '#e54078']
+colourMap2 = ['#174492', '#fd7e1c', '#a91a4a']
 
 #0D
 
@@ -220,7 +221,7 @@ for tt in range(len(trialList)):
         #Plot on current axes
         sns.boxplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
                     whis = [0,100], color = colourMap[tt], width = 0.75,
-                    zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
+                    zorder = 2, ax = ax[whichAx[vv][0],whichAx[vv][1]])
         
         #Alter the faces and outlines of bars
         #Loop through boxes and fix colours
@@ -249,12 +250,18 @@ for tt in range(len(trialList)):
         sns.violinplot(data = df_currData, x = 'extractNo', y = 'meanAbsError',
                        cut = True, scale = 'width', inner = None,
                        color = colourMap[tt], width = 0.75,
-                       zorder = 4, ax = ax[whichAx[vv][0],whichAx[vv][1]])
+                       zorder = 1, ax = ax[whichAx[vv][0],whichAx[vv][1]])
         
         #Adjust alpha and edge width on violins
         for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
             violin.set_alpha(0.3)
-            violin.set_linewidth(0) 
+            violin.set_linewidth(0)
+            
+        #Add point plot with mean and standard deviation
+        sns.pointplot(data = df_currData, x = 'extractNo', y = 'meanAbsError', ci = 'sd',
+                      join = False, color = colourMap2[tt],
+                      scale = 0.5, errwidth = 1.5,
+                      zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
 
         #Adjust x-axes labels
         if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
@@ -299,9 +306,6 @@ for tt in range(len(trialList)):
     #Close figure
     plt.close() 
 
-##### TODO: should tabulate these in some way for ground truth comp as there
-##### are multiple means for each extraction number???    
-    
 #1D
 
 #Display peak absolute errors for 1D variables compared to ground truth as boxplots
@@ -365,6 +369,12 @@ for tt in range(len(trialList)):
         for violin in ax[whichAx[vv][0],whichAx[vv][1]].collections:
             violin.set_alpha(0.3)
             violin.set_linewidth(0)
+            
+        #Add point plot with mean and standard deviation
+        sns.pointplot(data = df_currData, x = 'extractNo', y = 'peakAbsError', ci = 'sd',
+                      join = False, color = colourMap2[tt],
+                      scale = 0.5, errwidth = 1.5,
+                      zorder = 5, ax = ax[whichAx[vv][0],whichAx[vv][1]])
 
         #Adjust x-axes labels
         if whichAx[vv] == [2,0] or whichAx[vv] == [1,1]:
