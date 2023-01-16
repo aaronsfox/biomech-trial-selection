@@ -419,4 +419,205 @@ for tt in range(len(trialList)):
     #Close figure
     plt.close()
     
+# %% Visualise ground truth comparisons and effect magnitudes
+#    This variant is a combined figure of all speeds
+
+#0D
+
+#Display mean absolute errors for 0D variables compared to ground truth as boxplots
+
+#Set up figure
+fig, ax = plt.subplots(nrows = 5, ncols = 1,
+                        figsize = (8.3,11.7))
+
+#Loop through variables to plot
+for vv in range(len(analysisVar)):
+    
+    #Extract current variable data for 0D variable
+    df_currData = df_groundTruthComp.loc[(df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                          (df_groundTruthComp['varType'] == '0D'),
+                                          ['extractNo','trialID','analysisVar','meanAbsError','effectSize']]
+    
+    #Plot on current axes
+    sns.boxplot(data = df_currData, x = 'extractNo', y = 'meanAbsError', hue = 'trialID',
+                whis = [0,100], palette = colourMap, width = 0.75,
+                zorder = 2, ax = ax[vv])
+    
+    #Alter the faces and outlines of bars
+    #Loop through boxes and fix colours
+    for ii in range(len(ax[vv].artists)):
+    
+        #Get the current artist
+        artist = ax[vv].artists[ii]
+        
+        #Set the linecolor on the artist to the facecolor, and set the facecolor to None
+        col = artist.get_facecolor()
+        artist.set_edgecolor(col)
+        artist.set_facecolor('None')
+        
+        #Each box has 6 associated Line2D objects (to make the whiskers, fliers, etc.)
+        #Loop over them here, and use the same colour as above
+        #The first two relate to the whisker lines, so we set these to dashes
+        for jj in range(ii*6,ii*6+6):
+            line = ax[vv].lines[jj]
+            line.set_color(col)
+            line.set_mfc(col)
+            line.set_mec(col)
+            if jj < ii*6 + 2:
+                line.set_linestyle('--')
+                
+    #Add violin plot
+    sns.violinplot(data = df_currData, x = 'extractNo', y = 'meanAbsError', hue = 'trialID',
+                   cut = True, scale = 'width', inner = None,
+                   palette = colourMap, width = 0.75,
+                   zorder = 1, ax = ax[vv])
+    
+    #Adjust alpha and edge width on violins
+    for violin in ax[vv].collections:
+        violin.set_alpha(0.3)
+        violin.set_linewidth(0)
+        
+    #Add point plot with mean and standard deviation
+    sns.pointplot(data = df_currData, x = 'extractNo', y = 'meanAbsError', ci = 'sd',
+                  hue = 'trialID', join = False, palette = colourMap2,
+                  scale = 0.5, errwidth = 1.5, dodge = 0.5,
+                  zorder = 5, ax = ax[vv])
+
+    #Adjust x-axes labels
+    if vv == 4:
+        #Set x-limits
+        ax[vv].set_xlim([ax[vv].get_xlim()[0]-0.5, ax[vv].get_xlim()[1]+0.5])
+        #Set x-ticks
+        ax[vv].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+        #Set label
+        ax[vv].set_xlabel('No. of Gait Cycles')
+    else:
+        #Set x-limits
+        ax[vv].set_xlim([ax[vv].get_xlim()[0]-0.5, ax[vv].get_xlim()[1]+0.5])
+        #Set x-ticks
+        ax[vv].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+        #Remove x-ticks
+        ax[vv].xaxis.set_ticklabels([])
+        #Remove label
+        ax[vv].set_xlabel('')
+       
+    #Set y-label
+    ax[vv].set_ylabel('Peak Absolute Error (\u00b0)', fontsize = 10)
+                
+    #Set title
+    ax[vv].set_title(f'Peak {analysisLabels[vv]}')
+    
+    #Remove legend
+    ax[vv].get_legend().remove()
+
+#Tight layout
+plt.tight_layout()
+
+#Save figure
+fig.savefig(f'{truthCompDir}\\Figures\\AbsoluteError_NoGaitCycle_ALL_0D.pdf')
+fig.savefig(f'{truthCompDir}\\Figures\\AbsoluteError_NoGaitCycle_ALL_0D.png',
+            format = 'png', dpi = 300)
+
+#Close figure
+plt.close() 
+
+#1D
+
+#Display mean absolute errors for 0D variables compared to ground truth as boxplots
+
+#Set up figure
+fig, ax = plt.subplots(nrows = 5, ncols = 1,
+                        figsize = (8.3,11.7))
+
+#Loop through variables to plot
+for vv in range(len(analysisVar)):
+    
+    #Extract current variable data for 0D variable
+    df_currData = df_groundTruthComp.loc[(df_groundTruthComp['analysisVar'] == analysisVar[vv]) &
+                                          (df_groundTruthComp['varType'] == '1D'),
+                                          ['extractNo','trialID','analysisVar','peakAbsError','effectSize']]
+    
+    #Plot on current axes
+    sns.boxplot(data = df_currData, x = 'extractNo', y = 'peakAbsError', hue = 'trialID',
+                whis = [0,100], palette = colourMap, width = 0.75,
+                zorder = 2, ax = ax[vv])
+    
+    #Alter the faces and outlines of bars
+    #Loop through boxes and fix colours
+    for ii in range(len(ax[vv].artists)):
+    
+        #Get the current artist
+        artist = ax[vv].artists[ii]
+        
+        #Set the linecolor on the artist to the facecolor, and set the facecolor to None
+        col = artist.get_facecolor()
+        artist.set_edgecolor(col)
+        artist.set_facecolor('None')
+        
+        #Each box has 6 associated Line2D objects (to make the whiskers, fliers, etc.)
+        #Loop over them here, and use the same colour as above
+        #The first two relate to the whisker lines, so we set these to dashes
+        for jj in range(ii*6,ii*6+6):
+            line = ax[vv].lines[jj]
+            line.set_color(col)
+            line.set_mfc(col)
+            line.set_mec(col)
+            if jj < ii*6 + 2:
+                line.set_linestyle('--')
+                
+    #Add violin plot
+    sns.violinplot(data = df_currData, x = 'extractNo', y = 'peakAbsError', hue = 'trialID',
+                   cut = True, scale = 'width', inner = None,
+                   palette = colourMap, width = 0.75,
+                   zorder = 1, ax = ax[vv])
+    
+    #Adjust alpha and edge width on violins
+    for violin in ax[vv].collections:
+        violin.set_alpha(0.3)
+        violin.set_linewidth(0)
+        
+    #Add point plot with mean and standard deviation
+    sns.pointplot(data = df_currData, x = 'extractNo', y = 'peakAbsError', ci = 'sd',
+                  hue = 'trialID', join = False, palette = colourMap2,
+                  scale = 0.5, errwidth = 1.5, dodge = 0.5,
+                  zorder = 5, ax = ax[vv])
+
+    #Adjust x-axes labels
+    if vv == 4:
+        #Set x-limits
+        ax[vv].set_xlim([ax[vv].get_xlim()[0]-0.5, ax[vv].get_xlim()[1]+0.5])
+        #Set x-ticks
+        ax[vv].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+        #Set label
+        ax[vv].set_xlabel('No. of Gait Cycles')
+    else:
+        #Set x-limits
+        ax[vv].set_xlim([ax[vv].get_xlim()[0]-0.5, ax[vv].get_xlim()[1]+0.5])
+        #Set x-ticks
+        ax[vv].set_xticks(np.linspace(0,len(extractNo)-1, int((len(extractNo)-1)/5)+1))
+        #Remove x-ticks
+        ax[vv].xaxis.set_ticklabels([])
+        #Remove label
+        ax[vv].set_xlabel('')
+       
+    #Set y-label
+    ax[vv].set_ylabel('Peak Absolute Error (\u00b0)', fontsize = 10)
+                
+    #Set title
+    ax[vv].set_title(f'1D {analysisLabels[vv]}')
+
+    #Remove legend
+    ax[vv].get_legend().remove()
+
+#Tight layout
+plt.tight_layout()
+
+#Save figure
+fig.savefig(f'{truthCompDir}\\Figures\\AbsoluteError_NoGaitCycle_ALL_1D.pdf')
+fig.savefig(f'{truthCompDir}\\Figures\\AbsoluteError_NoGaitCycle_ALL_1D.png',
+            format = 'png', dpi = 300)
+
+#Close figure
+plt.close()
+    
 # %% ----- End of analyseFukuchi2017-Running_RQ2.py -----

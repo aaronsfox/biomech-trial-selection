@@ -423,7 +423,7 @@ for tt in range(len(trialList)):
 
 #Set up figure
 fig, ax = plt.subplots(nrows = 5, ncols = 1,
-                        figsize = (8.27,11.69))
+                        figsize = (8.3,11.7))
 
 #Loop through variables to plot
 for vv in range(len(analysisVar)):
@@ -523,7 +523,7 @@ plt.close()
 
 #Set up figure
 fig, ax = plt.subplots(nrows = 5, ncols = 1,
-                        figsize = (8.27,11.69))
+                        figsize = (8.3,11.7))
 
 #Loop through variables to plot
 for vv in range(len(analysisVar)):
@@ -603,7 +603,7 @@ for vv in range(len(analysisVar)):
     ax[vv].get_legend().remove()
         
     #Set y-label
-    ax[vv].set_ylabel('Peak Abs. Difference (\u00b0)')
+    ax[vv].set_ylabel('Peak Abs. Difference (\u00b0)', fontsize = 10)
     
     #Set title
     ax[vv].set_title(f'1D {analysisLabels[vv]}')
